@@ -1,0 +1,54 @@
+<UserControl x:Class="NINA.Plugins.Fujifilm.UI.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="360"
+             d:DesignHeight="260">
+    <Grid Margin="16">
+        <StackPanel>
+            <TextBlock Text="Fujifilm Plugin Settings" FontSize="16" FontWeight="Bold" Margin="0 0 0 12" />
+
+            <GroupBox Header="Exposure" Margin="0 0 0 12">
+                <StackPanel Margin="8">
+                    <CheckBox Content="Enable SDK Trace" IsChecked="{Binding Settings.EnableSdkTrace, Mode=TwoWay}" />
+                    <CheckBox Content="Force Manual Exposure Mode" IsChecked="{Binding Settings.ForceManualExposureMode, Mode=TwoWay}" />
+                    <StackPanel Orientation="Horizontal" Margin="0 8 0 0">
+                        <TextBlock Text="Bulb Release Delay (ms):" VerticalAlignment="Center" />
+                        <TextBox Width="80" Margin="8 0 0 0" Text="{Binding Settings.BulbReleaseDelayMs, Mode=TwoWay}" />
+                    </StackPanel>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Focus" Margin="0 0 0 12">
+                <StackPanel Margin="8">
+                    <CheckBox Content="Force Manual Focus Mode" IsChecked="{Binding Settings.ForceManualFocusMode, Mode=TwoWay}" />
+                    <StackPanel Orientation="Horizontal" Margin="0 8 0 0">
+                        <TextBlock Text="Focus Backlash Steps:" VerticalAlignment="Center" />
+                        <TextBox Width="80" Margin="8 0 0 0" Text="{Binding Settings.FocusBacklashSteps, Mode=TwoWay}" />
+                    </StackPanel>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Discovery" Margin="0 0 0 12">
+                <StackPanel Margin="8">
+                    <Button Content="Refresh Cameras" Width="140" Command="{Binding RefreshCamerasAsyncCommand}" />
+                    <ListBox ItemsSource="{Binding AvailableCameras}" DisplayMemberPath="DisplayName" Height="120" Margin="0 8 0 0" SelectedItem="{Binding SelectedCamera, Mode=TwoWay}" />
+                    <Button Content="Load Capabilities" Width="140" Command="{Binding LoadCapabilitiesAsyncCommand}" Margin="0 4 0 0" />
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Capabilities" Margin="0 0 0 12">
+                <StackPanel Margin="8">
+                    <TextBlock Text="{Binding CapabilitiesSummary}" TextWrapping="Wrap" />
+                </StackPanel>
+            </GroupBox>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <Button Content="Save" Width="120" Command="{Binding SaveCommand}" />
+                <Button Content="Export Diagnostics" Width="160" Margin="8,0,0,0" Command="{Binding ExportDiagnosticsAsyncCommand}" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

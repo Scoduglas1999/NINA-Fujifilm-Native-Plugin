@@ -1,0 +1,47 @@
+<Project>
+  <PropertyGroup>
+    <PublishDir>$(OutputPath)publish\</PublishDir>
+    <DistDir>$(MSBuildThisFileDirectory)..\dist\</DistDir>
+    <EnableZipPackaging Condition="'$(MSBuildRuntimeType)' == 'Full'">true</EnableZipPackaging>
+  </PropertyGroup>
+
+  <Target Name="PreparePublish" AfterTargets="Build">
+    <ItemGroup>
+      <PublishItems Include="$(TargetPath)" />
+      <PublishItems Include="$(TargetDir)plugin.json" />
+      <PublishItems Include="$(TargetDir)Interop\Native\**\*.dll" />
+      <PublishItems Include="$(TargetDir)Configuration\Assets\CameraConfigs\**\*" />
+    </ItemGroup>
+
+    <RemoveDir Directories="$(PublishDir)" />
+    <MakeDir Directories="$(PublishDir)" />
+    <Copy SourceFiles="@(PublishItems)" DestinationFolder="$(PublishDir)%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <UsingTask TaskName="CreateZip" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll" Condition="'$(EnableZipPackaging)' == 'true'">
+    <ParameterGroup>
+      <SourceDir ParameterType="System.String" Required="true" />
+      <ZipPath ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Reference Include="System.IO.Compression" />
+      <Reference Include="System.IO.Compression.FileSystem" />
+      <Using Namespace="System.IO.Compression" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        if (File.Exists(ZipPath))
+        {
+            File.Delete(ZipPath);
+        }
+        ZipFile.CreateFromDirectory(SourceDir, ZipPath, CompressionLevel.Optimal, false);
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="PackagePlugin" AfterTargets="PreparePublish" Condition="'$(EnableZipPackaging)' == 'true'">
+    <MakeDir Directories="$(DistDir)" />
+    <PropertyGroup>
+      <ZipFile>$(DistDir)NINA.Plugins.Fujifilm-$(Configuration).zip</ZipFile>
+    </PropertyGroup>
+    <CreateZip SourceDir="$(PublishDir)" ZipPath="$(ZipFile)" />
+  </Target>
+</Project>

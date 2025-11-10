@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.34024.191
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NINA.Plugins.Fujifilm", "src\NINA.Plugins.Fujifilm\NINA.Plugins.Fujifilm.csproj", "{7C206AF6-1139-4C3B-9A53-74624B65AF37}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7C206AF6-1139-4C3B-9A53-74624B65AF37}.Debug|x64.ActiveCfg = Debug|x64
+		{7C206AF6-1139-4C3B-9A53-74624B65AF37}.Debug|x64.Build.0 = Debug|x64
+		{7C206AF6-1139-4C3B-9A53-74624B65AF37}.Release|x64.ActiveCfg = Release|x64
+		{7C206AF6-1139-4C3B-9A53-74624B65AF37}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9A886661-63BB-4E21-94A3-453783A14A24}
+	EndGlobalSection
+EndGlobal

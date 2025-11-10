@@ -1,0 +1,8 @@
+is_global = true
+build_property.RootNamespace = NINA.Plugins.Fujifilm
+build_property.ProjectDir = C:\Users\scdou\Documents\FujiAF\src\NINA.Plugins.Fujifilm\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.CsWinRTUseWindowsUIXamlProjections = false
+build_property.EffectiveAnalysisLevelStyle = 
+build_property.EnableCodeStyleSeverity = 

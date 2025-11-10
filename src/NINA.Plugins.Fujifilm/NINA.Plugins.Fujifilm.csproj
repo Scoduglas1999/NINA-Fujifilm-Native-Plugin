@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>NINA.Plugins.Fujifilm</AssemblyName>
+    <RootNamespace>NINA.Plugins.Fujifilm</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NINA.Plugin" Version="2.2.0.9001" />
+    <PackageReference Include="NINA.Core" Version="2.2.0.9001" />
+    <PackageReference Include="NINA.Equipment" Version="2.2.0.9001" />
+    <PackageReference Include="NINA.Image" Version="2.2.0.9001" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="7.0.0" />
+    <PackageReference Include="System.Text.Json" Version="7.0.3" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
+    <Reference Include="System.ComponentModel.Composition" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Configuration\Assets\CameraConfigs\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Interop\Native\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="plugin.json" CopyToOutputDirectory="Always" />
+  </ItemGroup>
+
+  <Import Project="..\..\build\Bundle.targets" Condition="Exists('..\..\build\Bundle.targets')" />
+</Project>

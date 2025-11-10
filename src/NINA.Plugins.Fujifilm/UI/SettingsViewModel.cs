@@ -1,0 +1,203 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.Composition;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using NINA.Plugins.Fujifilm.Diagnostics;
+using NINA.Plugins.Fujifilm.Devices;
+using NINA.Plugins.Fujifilm.Settings;
+
+namespace NINA.Plugins.Fujifilm.UI;
+
+[Export(typeof(SettingsViewModel))]
+[PartCreationPolicy(CreationPolicy.NonShared)]
+public partial class SettingsViewModel : ObservableObject
+{
+    private readonly IFujiSettingsProvider _settingsProvider;
+    private readonly IFujifilmDiagnosticsService _diagnostics;
+    private readonly IFujiCameraFactory _cameraFactory;
+    private CancellationTokenSource? _capabilitiesCts;
+
+    [ObservableProperty]
+    private IReadOnlyList<FujifilmCameraDescriptor> _availableCameras = Array.Empty<FujifilmCameraDescriptor>();
+
+    [ObservableProperty]
+    private FujifilmCameraDescriptor? _selectedCamera;
+
+    [ObservableProperty]
+    private FujiCameraCapabilities? _cameraCapabilities;
+
+    [ObservableProperty]
+    private bool _isLoadingCapabilities;
+
+    [ObservableProperty]
+    private string _capabilitiesErrorMessage = string.Empty;
+
+    [ImportingConstructor]
+    public SettingsViewModel(IFujiSettingsProvider settingsProvider, IFujifilmDiagnosticsService diagnostics, IFujiCameraFactory cameraFactory)
+    {
+        _settingsProvider = settingsProvider;
+        _diagnostics = diagnostics;
+        _cameraFactory = cameraFactory;
+        Settings = settingsProvider.Settings;
+        _ = RefreshCamerasAsync();
+    }
+
+    public FujiSettings Settings { get; }
+
+    public string CapabilitiesSummary
+    {
+        get
+        {
+            if (IsLoadingCapabilities)
+            {
+                return "Loading capabilities...";
+            }
+
+            if (!string.IsNullOrEmpty(CapabilitiesErrorMessage))
+            {
+                return $"Error: {CapabilitiesErrorMessage}";
+            }
+
+            if (CameraCapabilities == null)
+            {
+                return "Select a camera to view capabilities.";
+            }
+
+            var caps = CameraCapabilities;
+            var isoSummary = caps.IsoValues.Count switch
+            {
+                0 => "n/a",
+                1 => caps.IsoValues[0].ToString(),
+                _ => $"{caps.IsoValues[0]} – {caps.IsoValues[caps.IsoValues.Count - 1]}"
+            };
+
+            var exposureSummary = caps.MaxExposureSeconds > 0
+                ? $"{caps.MinExposureSeconds:0.###} s – {caps.MaxExposureSeconds:0.###} s"
+                : "n/a";
+
+            var bufferSummary = caps.BufferTotalCapacity > 0
+                ? $"{caps.BufferShootCapacity}/{caps.BufferTotalCapacity}"
+                : "n/a";
+
+            var resolutionSummary = caps.SensorWidth > 0 && caps.SensorHeight > 0
+                ? $"{caps.SensorWidth} x {caps.SensorHeight}"
+                : "n/a";
+
+            var bulbSummary = caps.SupportsBulb ? "Yes" : "No";
+
+            var stateSummary = $"Mode: {caps.ModeCode}  AE: {caps.AEModeCode}  DR: {caps.DynamicRangeCode}";
+            var errorSummary = (caps.LastSdkErrorCode != 0 || caps.LastApiErrorCode != 0)
+                ? $"{caps.LastSdkErrorCode} (API {caps.LastApiErrorCode})"
+                : "None";
+
+            return $"Resolution: {resolutionSummary}\nISO Range: {isoSummary}\nExposure: {exposureSummary}\nSupports Bulb: {bulbSummary}\nBuffer Capacity: {bufferSummary}\n{stateSummary}\nLast Error: {errorSummary}";
+        }
+    }
+
+    [RelayCommand]
+    private void Save()
+    {
+        _settingsProvider.Save();
+    }
+
+    [RelayCommand]
+    private async Task ExportDiagnosticsAsync()
+    {
+        await _diagnostics.ExportDiagnosticsAsync(CancellationToken.None).ConfigureAwait(false);
+    }
+
+    [RelayCommand]
+    private async Task RefreshCamerasAsync()
+    {
+        try
+        {
+            var cameras = await _cameraFactory.GetAvailableCamerasAsync(CancellationToken.None).ConfigureAwait(false);
+            AvailableCameras = cameras;
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.RecordEvent("Settings", $"Refresh failed: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task LoadCapabilitiesAsync()
+    {
+        await LoadCapabilitiesInternalAsync().ConfigureAwait(false);
+    }
+
+    partial void OnSelectedCameraChanged(FujifilmCameraDescriptor? value)
+    {
+        CapabilitiesErrorMessage = string.Empty;
+        _ = LoadCapabilitiesInternalAsync();
+    }
+
+    partial void OnCameraCapabilitiesChanged(FujiCameraCapabilities? value)
+    {
+        OnPropertyChanged(nameof(CapabilitiesSummary));
+    }
+
+    partial void OnIsLoadingCapabilitiesChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CapabilitiesSummary));
+    }
+
+    partial void OnCapabilitiesErrorMessageChanged(string value)
+    {
+        OnPropertyChanged(nameof(CapabilitiesSummary));
+    }
+
+    private async Task LoadCapabilitiesInternalAsync()
+    {
+        var descriptor = SelectedCamera;
+        if (descriptor == null)
+        {
+            CameraCapabilities = null;
+            CapabilitiesErrorMessage = string.Empty;
+            return;
+        }
+
+        var cts = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _capabilitiesCts, cts);
+        previous?.Cancel();
+        previous?.Dispose();
+
+        IsLoadingCapabilities = true;
+        CapabilitiesErrorMessage = string.Empty;
+
+        try
+        {
+            var capabilities = await _cameraFactory.GetCapabilitiesAsync(descriptor, cts.Token).ConfigureAwait(false);
+            if (ReferenceEquals(_capabilitiesCts, cts))
+            {
+                CameraCapabilities = capabilities;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Swallow cancellations triggered by selection changes.
+        }
+        catch (Exception ex)
+        {
+            if (ReferenceEquals(_capabilitiesCts, cts))
+            {
+                _diagnostics.RecordEvent("Settings", $"Capabilities load failed: {ex.Message}");
+                CapabilitiesErrorMessage = ex.Message;
+                CameraCapabilities = null;
+            }
+        }
+        finally
+        {
+            if (Interlocked.CompareExchange(ref _capabilitiesCts, null, cts) == cts)
+            {
+                IsLoadingCapabilities = false;
+            }
+
+            cts.Dispose();
+        }
+    }
+}

@@ -1,0 +1,9 @@
+{
+  "Name": "Fujifilm Native Camera",
+  "Author": "Scdouglas",
+  "Version": "0.1.0",
+  "Guid": "6e2b5a81-7c8e-4c09-9f2a-4f6a0bc6bb1e",
+  "MinNinaVersion": "2.1.0",
+  "Entrypoint": "NINA.Plugins.Fujifilm.Plugin.FujiManifest",
+  "Description": "Native camera support for Fujifilm X/GFX bodies, including RAW capture and lens focus control."
+}
