@@ -14,10 +14,54 @@ public sealed class FujifilmDiagnosticsService : IFujifilmDiagnosticsService
 {
     private readonly ConcurrentQueue<FujifilmDiagnosticEvent> _events = new();
 
+    public FujifilmDiagnosticsService()
+    {
+        try { System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujifilmDiagnosticsService Constructor called\n"); } catch {}
+    }
+
     public void RecordEvent(string category, string message)
     {
         var evt = new FujifilmDiagnosticEvent(DateTimeOffset.UtcNow, category, message);
         _events.Enqueue(evt);
+        try 
+        { 
+            System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{evt.Timestamp.ToLocalTime()}] [{category}] {message}\n"); 
+        } 
+        catch {}
+    }
+
+    public void RecordSdkCall(string apiName, int result, int apiCode, int errorCode)
+    {
+        var message = $"API={apiName} Result={result} ApiCode=0x{apiCode:X} ErrCode=0x{errorCode:X}";
+        RecordEvent("SDK", message);
+    }
+
+    public void RecordBayerPatternDetection(string pattern, int width, int height, bool isXTrans, int? isBayerFlag = null)
+    {
+        var message = $"Pattern={pattern} Dimensions={width}x{height} IsXTrans={isXTrans}";
+        if (isBayerFlag.HasValue)
+        {
+            message += $" IsBayer={isBayerFlag.Value}";
+        }
+        RecordEvent("BayerPattern", message);
+    }
+
+    public void RecordFitsKeywordGeneration(int keywordCount, string? bayerPattern = null)
+    {
+        var message = $"Generated {keywordCount} FITS keywords";
+        if (!string.IsNullOrEmpty(bayerPattern))
+        {
+            message += $" BAYERPAT={bayerPattern}";
+        }
+        RecordEvent("FITS", message);
+    }
+
+    public void RecordSdkConstantValidation(string constantName, int expectedValue, int actualValue, bool isValid)
+    {
+        if (!isValid)
+        {
+            RecordEvent("SDKValidation", $"WARNING: {constantName} expected=0x{expectedValue:X} actual=0x{actualValue:X}");
+        }
     }
 
     public async Task<string> ExportDiagnosticsAsync(CancellationToken cancellationToken)

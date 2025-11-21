@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.Composition;
 using NINA.Plugin;
 using NINA.Plugin.Interfaces;
@@ -9,11 +10,11 @@ namespace NINA.Plugins.Fujifilm.Plugin;
 [PartCreationPolicy(CreationPolicy.Shared)]
 public sealed class FujiManifest : PluginBase
 {
-    public SettingsViewModel Settings { get; }
+    [Import(AllowDefault = true, AllowRecomposition = true)]
+    public SettingsViewModel? Settings { get; set; }
 
-    [ImportingConstructor]
-    public FujiManifest(SettingsViewModel settingsViewModel)
+    public FujiManifest()
     {
-        Settings = settingsViewModel;
+        try { System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujiManifest Constructor called\n"); } catch {}
     }
 }

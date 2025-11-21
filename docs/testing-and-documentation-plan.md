@@ -30,6 +30,15 @@
    - Attempt to set unsupported ISO – plugin must reject with validation error.
 8. **Packaging Verification**
    - Install release zip on clean machine; confirm plugin loads and finds native DLLs.
+9. **Color Rendering & LibRaw**
+   - Capture RAW frames with various Fuji bodies, verify N.I.N.A. preview renders color using the extended LibRaw pipeline.
+   - Inspect `XTNSPAT`, `BAYERPAT`, and `CFAAXIS` FITS keywords to ensure X-Trans layouts are recorded.
+10. **FITS/XISF Round-Trip**
+    - Export FITS/XISF from N.I.N.A., open in PixInsight and DeepSkyStacker, confirm metadata (ISO, shutter, lens) is preserved.
+    - Stack multiple frames to verify there is no color shift relative to native RAF ingestion.
+11. **RAF Sidecar Integrity**
+    - Enable “Save native RAF sidecar”, capture frames, and confirm `.raf` files exist alongside FITS with matching timestamps.
+    - Disable the setting and ensure RAF files are no longer produced.
 
 ## 3. Automation Possibilities
 - Use N.I.N.A.’s sequencer scripting to run repeated exposures and capture logs.

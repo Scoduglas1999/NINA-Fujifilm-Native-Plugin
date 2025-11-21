@@ -21,6 +21,13 @@
                 </StackPanel>
             </GroupBox>
 
+            <GroupBox Header="Output" Margin="0 0 0 12">
+                <StackPanel Margin="8">
+                    <CheckBox Content="Save native RAF sidecar" IsChecked="{Binding Settings.SaveNativeRafSidecar, Mode=TwoWay}" />
+                    <CheckBox Content="Annotate FITS headers with Fuji metadata" IsChecked="{Binding Settings.EnableExtendedFitsMetadata, Mode=TwoWay}" />
+                </StackPanel>
+            </GroupBox>
+
             <GroupBox Header="Focus" Margin="0 0 0 12">
                 <StackPanel Margin="8">
                     <CheckBox Content="Force Manual Focus Mode" IsChecked="{Binding Settings.ForceManualFocusMode, Mode=TwoWay}" />

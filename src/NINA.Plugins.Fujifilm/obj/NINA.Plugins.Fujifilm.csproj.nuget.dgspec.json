@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\scdou\\Documents\\FujiAF\\src\\NINA.Plugins.Fujifilm\\NINA.Plugins.Fujifilm.csproj": {}
+    "C:\\Users\\scdou\\Documents\\NINA.Fujifilm.Plugin\\src\\NINA.Plugins.Fujifilm\\NINA.Plugins.Fujifilm.csproj": {}
   },
   "projects": {
-    "C:\\Users\\scdou\\Documents\\FujiAF\\src\\NINA.Plugins.Fujifilm\\NINA.Plugins.Fujifilm.csproj": {
-      "version": "1.0.0",
+    "C:\\Users\\scdou\\Documents\\NINA.Fujifilm.Plugin\\src\\NINA.Plugins.Fujifilm\\NINA.Plugins.Fujifilm.csproj": {
+      "version": "2.1.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\scdou\\Documents\\FujiAF\\src\\NINA.Plugins.Fujifilm\\NINA.Plugins.Fujifilm.csproj",
+        "projectUniqueName": "C:\\Users\\scdou\\Documents\\NINA.Fujifilm.Plugin\\src\\NINA.Plugins.Fujifilm\\NINA.Plugins.Fujifilm.csproj",
         "projectName": "NINA.Plugins.Fujifilm",
-        "projectPath": "C:\\Users\\scdou\\Documents\\FujiAF\\src\\NINA.Plugins.Fujifilm\\NINA.Plugins.Fujifilm.csproj",
+        "projectPath": "C:\\Users\\scdou\\Documents\\NINA.Fujifilm.Plugin\\src\\NINA.Plugins.Fujifilm\\NINA.Plugins.Fujifilm.csproj",
         "packagesPath": "C:\\Users\\scdou\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\scdou\\Documents\\FujiAF\\src\\NINA.Plugins.Fujifilm\\obj\\",
+        "outputPath": "C:\\Users\\scdou\\Documents\\NINA.Fujifilm.Plugin\\src\\NINA.Plugins.Fujifilm\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -22,15 +22,15 @@
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
-          "net48"
+          "net8.0-windows"
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
-          "net48": {
-            "targetAlias": "net48",
+          "net8.0-windows7.0": {
+            "targetAlias": "net8.0-windows",
             "projectReferences": {}
           }
         },
@@ -47,8 +47,8 @@
         "SdkAnalysisLevel": "9.0.200"
       },
       "frameworks": {
-        "net48": {
-          "targetAlias": "net48",
+        "net8.0-windows7.0": {
+          "targetAlias": "net8.0-windows",
           "dependencies": {
             "CommunityToolkit.Mvvm": {
               "target": "Package",
@@ -60,19 +60,19 @@
             },
             "NINA.Core": {
               "target": "Package",
-              "version": "[2.2.0.9001, )"
+              "version": "[3.1.2.9001, )"
             },
             "NINA.Equipment": {
               "target": "Package",
-              "version": "[2.2.0.9001, )"
+              "version": "[3.1.2.9001, )"
             },
             "NINA.Image": {
               "target": "Package",
-              "version": "[2.2.0.9001, )"
+              "version": "[3.1.2.9001, )"
             },
             "NINA.Plugin": {
               "target": "Package",
-              "version": "[2.2.0.9001, )"
+              "version": "[3.1.2.9001, )"
             },
             "System.Text.Json": {
               "target": "Package",
@@ -83,7 +83,26 @@
               "version": "[4.5.4, )"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.203\\RuntimeIdentifierGraph.json"
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            },
+            "Microsoft.WindowsDesktop.App.WPF": {
+              "privateAssets": "none"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.203/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

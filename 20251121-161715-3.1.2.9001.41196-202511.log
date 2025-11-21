@@ -1,0 +1,143 @@
+----------------------------------------------------------------------
+--------------N.I.N.A. - Nighttime Imaging 'N' Astronomy--------------
+--------------------------Version 3.1.2.9001--------------------------
+-------------------------2025-11-21T16:17:15--------------------------
+----------------------------------------------------------------------
+---------------------Microsoft Windows 10.0.26100---------------------
+-------------------------OS Architecture X64--------------------------
+-----------------------Process Architecture X64-----------------------
+------------------------------.NET 8.0.8------------------------------
+----------------------------------------------------------------------
+--------------------------Processor Count 16--------------------------
+--------------------Total Physical Memory 31.16 GB--------------------
+----------------------------------------------------------------------
+DATE|LEVEL|SOURCE|MEMBER|LINE|MESSAGE
+2025-11-21T16:17:15.3946|INFO|CameraChooserVM.cs|GetEquipment|69|Found 0 ASI Cameras
+2025-11-21T16:17:15.4758|INFO|CameraChooserVM.cs|GetEquipment|84|Found 0 Altair Cameras
+2025-11-21T16:17:15.9076|INFO|CameraChooserVM.cs|GetEquipment|96|Found 0 Atik Cameras
+2025-11-21T16:17:15.9080|INFO|CameraChooserVM.cs|GetEquipment|110|Found 0 FLI Cameras
+2025-11-21T16:17:16.5351|INFO|ApplicationVM.cs|CheckDiskInfo|100|Available Space on Drive C:\: 58.54 GB
+2025-11-21T16:17:16.5353|INFO|ApplicationVM.cs|CheckDiskInfo|100|Available Space on Drive D:\: 708.57 GB
+2025-11-21T16:17:16.5354|INFO|ApplicationVM.cs|CheckDiskInfo|100|Available Space on Drive E:\: 267.18 GB
+2025-11-21T16:17:16.5355|INFO|ApplicationVM.cs|CheckDiskInfo|100|Available Space on Drive F:\: 2381.86 GB
+2025-11-21T16:17:16.5355|INFO|ApplicationVM.cs|CheckDiskInfo|100|Available Space on Drive G:\: 498.58 GB
+2025-11-21T16:17:16.5359|INFO|ApplicationVM.cs|CheckDiskInfo|102|Drive Z:\ is not ready
+2025-11-21T16:17:16.5369|INFO|ApplicationVM.cs|CheckASCOMPlatformVersion|81|ASCOM Platform 6.6.2.4294 installed
+2025-11-21T16:17:16.8375|INFO|PluginLoader.cs|LoadPlugin|416|Successfully loaded plugin Fujifilm Native Camera version 2.1.0.0 by Scdouglas
+2025-11-21T16:17:16.8950|INFO|PluginLoader.cs|LoadPlugin|416|Successfully loaded plugin Hocus Focus version 3.0.0.18 by George Hilios (jokogeo)
+2025-11-21T16:17:16.9039|INFO|PluginLoader.cs|LoadPlugin|416|Successfully loaded plugin Remote Copy version 3.0.0.0 by Tom Palmer @tcpalmer
+2025-11-21T16:17:16.9080|INFO|PluginFetcher.cs|RequestAll|43|Fetching plugin manifests from https://nighttime-imaging.eu/wp-json/nina/v1/plugins/manifests
+2025-11-21T16:17:16.9161|INFO|CameraChooserVM.cs|GetEquipment|130|Found 0 QHYCCD Cameras
+2025-11-21T16:17:16.9601|INFO|CameraChooserVM.cs|GetEquipment|158|Found 0 ToupTek Cameras
+2025-11-21T16:17:16.9630|INFO|CameraChooserVM.cs|GetEquipment|173|Found 0 Ogma Cameras
+2025-11-21T16:17:16.9671|INFO|CameraChooserVM.cs|GetEquipment|188|Found 0 Omegon Cameras
+2025-11-21T16:17:17.0047|INFO|CameraChooserVM.cs|GetEquipment|203|Found 0 RisingCam Cameras
+2025-11-21T16:17:17.0096|INFO|CameraChooserVM.cs|GetEquipment|218|Found 0 MallinCam Cameras
+2025-11-21T16:17:17.0108|INFO|CameraChooserVM.cs|GetEquipment|244|Found 0 SBIG Cameras
+2025-11-21T16:17:17.0169|INFO|CameraChooserVM.cs|GetEquipment|264|Found 0 SVBony Cameras
+2025-11-21T16:17:17.0193|INFO|CameraChooserVM.cs|GetEquipment|264|Found 0 PlayerOne Cameras
+2025-11-21T16:17:17.0209|INFO|CameraChooserVM.cs|GetEquipment|264|Found 0 ASTPAN Cameras
+2025-11-21T16:17:17.3252|INFO|FocuserChooserVM.cs|GetEquipment|46|Found 0 Fujifilm Focuser Focusers
+2025-11-21T16:17:17.6781|INFO|PluginFetcher.cs|RequestAll|57|Found 61 valid plugins at https://nighttime-imaging.eu/wp-json/nina/v1/plugins/manifests
+2025-11-21T16:17:17.7264|INFO|CameraChooserVM.cs|GetEquipment|264|Found 0 Fujifilm Cameras
+2025-11-21T16:17:17.7271|INFO|CameraChooserVM.cs|GetEquipment|278|Found 4 ASCOM Cameras
+2025-11-21T16:17:18.9256|INFO|RotatorChooserVM.cs|GetEquipment|68|Found 0 Alpaca Rotators
+2025-11-21T16:17:18.9256|INFO|DomeChooserVM.cs|GetEquipment|67|Found 0 Alpaca Domes
+2025-11-21T16:17:18.9256|INFO|SwitchChooserVM.cs|GetEquipment|71|Found 0 Alpaca Switch Hubs
+2025-11-21T16:17:18.9259|INFO|TelescopeChooserVM.cs|GetEquipment|69|Found 0 Alpaca Telescopes
+2025-11-21T16:17:18.9257|INFO|WeatherDataChooserVM.cs|GetEquipment|69|Found 0 Alpaca Observing Conditions
+2025-11-21T16:17:18.9256|INFO|FlatDeviceChooserVM.cs|GetEquipment|67|Found 0 Alpaca Cover Calibrators
+2025-11-21T16:17:18.9258|INFO|SafetyMonitorChooserVM.cs|GetEquipment|71|Found 0 Alpaca Safety Monitors
+2025-11-21T16:17:18.9360|INFO|FilterWheelChooserVM.cs|GetEquipment|193|Found 0 Alpaca Filter Wheels
+2025-11-21T16:17:19.3275|INFO|FocuserChooserVM.cs|GetEquipment|67|Found 0 Alpaca Focusers
+2025-11-21T16:17:19.7289|INFO|CameraChooserVM.cs|GetEquipment|290|Found 0 Alpaca Cameras
+2025-11-21T16:17:19.7294|INFO|CameraChooserVM.cs|GetEquipment|303|Found 0 Canon Cameras
+2025-11-21T16:17:21.4380|INFO|ApplicationDeviceConnectionVM.cs|UsbDeviceWatcher_DeviceInserted|173|New USB device detected DeviceId: USB\VID_04CB&PID_02E9\593536333431210210CB1010110497, PnpDeviceId: USB\VID_04CB&PID_02E9\593536333431210210CB1010110497, Description: GFX100S, Name: GFX100S, Manufacturer: FUJIFILM, Service: WUDFWpdMtp, Status: OK
+2025-11-21T16:17:22.2638|INFO|CameraChooserVM.cs|GetEquipment|69|Found 0 ASI Cameras
+2025-11-21T16:17:22.2685|INFO|CameraChooserVM.cs|GetEquipment|84|Found 0 Altair Cameras
+2025-11-21T16:17:22.2835|INFO|CameraChooserVM.cs|GetEquipment|96|Found 0 Atik Cameras
+2025-11-21T16:17:22.2838|INFO|CameraChooserVM.cs|GetEquipment|110|Found 0 FLI Cameras
+2025-11-21T16:17:22.2839|INFO|CameraChooserVM.cs|GetEquipment|130|Found 0 QHYCCD Cameras
+2025-11-21T16:17:22.3135|INFO|CameraChooserVM.cs|GetEquipment|158|Found 0 ToupTek Cameras
+2025-11-21T16:17:22.3144|INFO|CameraChooserVM.cs|GetEquipment|173|Found 0 Ogma Cameras
+2025-11-21T16:17:22.3164|INFO|CameraChooserVM.cs|GetEquipment|188|Found 0 Omegon Cameras
+2025-11-21T16:17:22.3403|INFO|CameraChooserVM.cs|GetEquipment|203|Found 0 RisingCam Cameras
+2025-11-21T16:17:22.3428|INFO|CameraChooserVM.cs|GetEquipment|218|Found 0 MallinCam Cameras
+2025-11-21T16:17:22.3434|INFO|CameraChooserVM.cs|GetEquipment|244|Found 0 SBIG Cameras
+2025-11-21T16:17:22.3436|INFO|CameraChooserVM.cs|GetEquipment|264|Found 0 SVBony Cameras
+2025-11-21T16:17:22.3436|INFO|CameraChooserVM.cs|GetEquipment|264|Found 0 PlayerOne Cameras
+2025-11-21T16:17:22.3439|INFO|CameraChooserVM.cs|GetEquipment|264|Found 0 ASTPAN Cameras
+2025-11-21T16:17:22.3582|INFO|CameraChooserVM.cs|GetEquipment|264|Found 1 Fujifilm Cameras
+2025-11-21T16:17:22.3586|INFO|CameraChooserVM.cs|GetEquipment|278|Found 4 ASCOM Cameras
+2025-11-21T16:17:24.3584|INFO|CameraChooserVM.cs|GetEquipment|290|Found 0 Alpaca Cameras
+2025-11-21T16:17:24.3596|INFO|CameraChooserVM.cs|GetEquipment|303|Found 0 Canon Cameras
+2025-11-21T16:17:27.2467|INFO|CameraVM.cs|Disconnect|645|Disconnected Camera
+2025-11-21T16:17:27.3521|INFO|CameraVM.cs|ChooseCamera|448|Successfully connected Camera. Id: Fujifilm Camera Plugin_GFX100S Name: GFX100S DisplayName: GFX100S (_GFX100S)Driver Version: 1.9.0
+2025-11-21T16:17:28.7485|INFO|DockManagerVM.cs|InitializeAvalonDockLayout|356|Initializing imaging tab layout from C:\Users\scdou\AppData\Local\NINA\Profiles\25bec54d-e9eb-422c-b3e4-bc5b9f13d29f.dock.config
+2025-11-21T16:17:32.6300|INFO|CameraVM.cs|Capture|737|Starting Exposure - Exposure Time: 1s; Filter: ; Gain: 400; Offset 0; Binning: 1x1;
+2025-11-21T16:17:37.0599|ERROR|ImagingVM.cs|PrepareImage|348|Failed to prepare image
+System.DivideByZeroException: Attempted to divide by zero.
+   at NINA.Image.ImageAnalysis.BayerFilter16bpp.ProcessFilter(UnmanagedImage sourceData, UnmanagedImage destinationData) in C:\Projects\nina\NINA.Image\ImageAnalysis\BayerFilter16bpp.cs:line 142
+   at Accord.Imaging.Filters.BaseFilter.Apply(BitmapData imageData)
+   at Accord.Imaging.Filters.BaseFilter.Apply(Bitmap image)
+   at NINA.Image.ImageAnalysis.ImageUtility.Debayer(Bitmap bmp, Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageAnalysis\ImageUtility.cs:line 278
+   at NINA.Image.ImageAnalysis.ImageUtility.Debayer(BitmapSource source, PixelFormat pf, Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageAnalysis\ImageUtility.cs:line 227
+   at NINA.Image.ImageData.DebayeredImage.Debayer(IRenderedImage imageData, IProfileService profileService, IStarDetection starDetection, IStarAnnotator starAnnotator, Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageData\DebayeredImage.cs:line 57
+   at NINA.Image.ImageData.RenderedImage.Debayer(Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageData\RenderedImage.cs:line 73
+   at NINA.ViewModel.ImageControlVM.PrepareImage(IImageData data, PrepareImageParameters parameters, CancellationToken cancelToken) in C:\Projects\nina\NINA\ViewModel\ImageControlVM.cs:line 621
+   at NINA.ViewModel.ImagingVM.<>c__DisplayClass46_0.<<PrepareImage>b__0>d.MoveNext() in C:\Projects\nina\NINA\ViewModel\ImagingVM.cs:line 342
+2025-11-21T16:17:37.0713|ERROR|AnchorableSnapshotVM.cs|SnapImage|414
+System.DivideByZeroException: Attempted to divide by zero.
+   at NINA.Image.ImageAnalysis.BayerFilter16bpp.ProcessFilter(UnmanagedImage sourceData, UnmanagedImage destinationData) in C:\Projects\nina\NINA.Image\ImageAnalysis\BayerFilter16bpp.cs:line 142
+   at Accord.Imaging.Filters.BaseFilter.Apply(BitmapData imageData)
+   at Accord.Imaging.Filters.BaseFilter.Apply(Bitmap image)
+   at NINA.Image.ImageAnalysis.ImageUtility.Debayer(Bitmap bmp, Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageAnalysis\ImageUtility.cs:line 278
+   at NINA.Image.ImageAnalysis.ImageUtility.Debayer(BitmapSource source, PixelFormat pf, Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageAnalysis\ImageUtility.cs:line 227
+   at NINA.Image.ImageData.DebayeredImage.Debayer(IRenderedImage imageData, IProfileService profileService, IStarDetection starDetection, IStarAnnotator starAnnotator, Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageData\DebayeredImage.cs:line 57
+   at NINA.Image.ImageData.RenderedImage.Debayer(Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageData\RenderedImage.cs:line 73
+   at NINA.ViewModel.ImageControlVM.PrepareImage(IImageData data, PrepareImageParameters parameters, CancellationToken cancelToken) in C:\Projects\nina\NINA\ViewModel\ImageControlVM.cs:line 621
+   at NINA.ViewModel.ImagingVM.<>c__DisplayClass46_0.<<PrepareImage>b__0>d.MoveNext() in C:\Projects\nina\NINA\ViewModel\ImagingVM.cs:line 342
+--- End of stack trace from previous location ---
+   at NINA.ViewModel.Imaging.AnchorableSnapshotVM.SnapImage(IProgress`1 progress) in C:\Projects\nina\NINA\ViewModel\Imaging\AnchorableSnapshotVM.cs:line 404
+2025-11-21T16:19:37.7281|INFO|ApplicationDeviceConnectionVM.cs|UsbDeviceWatcher_DeviceRemoved|178|USB Device disconnected DeviceId: USB\VID_04CB&PID_02E9\593536333431210210CB1010110497, PnpDeviceId: USB\VID_04CB&PID_02E9\593536333431210210CB1010110497, Description: GFX100S, Name: GFX100S, Manufacturer: FUJIFILM, Service: WUDFWpdMtp, Status: OK
+2025-11-21T16:19:45.2123|INFO|ApplicationDeviceConnectionVM.cs|UsbDeviceWatcher_DeviceInserted|173|New USB device detected DeviceId: USB\VID_04CB&PID_02E9\593536333431210210CB1010110497, PnpDeviceId: USB\VID_04CB&PID_02E9\593536333431210210CB1010110497, Description: GFX100S, Name: GFX100S, Manufacturer: FUJIFILM, Service: WUDFWpdMtp, Status: OK
+2025-11-21T16:19:46.9114|INFO|CameraVM.cs|Capture|737|Starting Exposure - Exposure Time: 1s; Filter: ; Gain: 400; Offset 0; Binning: 1x1;
+2025-11-21T16:19:52.7585|INFO|CameraVM.cs|Disconnect|645|Disconnected Camera
+2025-11-21T16:19:53.9788|INFO|CameraVM.cs|Disconnect|645|Disconnected Camera
+2025-11-21T16:19:54.0826|INFO|CameraVM.cs|ChooseCamera|448|Successfully connected Camera. Id: Fujifilm Camera Plugin_GFX100S Name: GFX100S DisplayName: GFX100S (_GFX100S)Driver Version: 1.9.0
+2025-11-21T16:19:56.7947|INFO|CameraVM.cs|Capture|737|Starting Exposure - Exposure Time: 1s; Filter: ; Gain: 400; Offset 0; Binning: 1x1;
+2025-11-21T16:20:01.1688|ERROR|ImagingVM.cs|PrepareImage|348|Failed to prepare image
+System.DivideByZeroException: Attempted to divide by zero.
+   at NINA.Image.ImageAnalysis.BayerFilter16bpp.ProcessFilter(UnmanagedImage sourceData, UnmanagedImage destinationData) in C:\Projects\nina\NINA.Image\ImageAnalysis\BayerFilter16bpp.cs:line 142
+   at Accord.Imaging.Filters.BaseFilter.Apply(BitmapData imageData)
+   at Accord.Imaging.Filters.BaseFilter.Apply(Bitmap image)
+   at NINA.Image.ImageAnalysis.ImageUtility.Debayer(Bitmap bmp, Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageAnalysis\ImageUtility.cs:line 278
+   at NINA.Image.ImageAnalysis.ImageUtility.Debayer(BitmapSource source, PixelFormat pf, Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageAnalysis\ImageUtility.cs:line 227
+   at NINA.Image.ImageData.DebayeredImage.Debayer(IRenderedImage imageData, IProfileService profileService, IStarDetection starDetection, IStarAnnotator starAnnotator, Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageData\DebayeredImage.cs:line 57
+   at NINA.Image.ImageData.RenderedImage.Debayer(Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageData\RenderedImage.cs:line 73
+   at NINA.ViewModel.ImageControlVM.PrepareImage(IImageData data, PrepareImageParameters parameters, CancellationToken cancelToken) in C:\Projects\nina\NINA\ViewModel\ImageControlVM.cs:line 621
+   at NINA.ViewModel.ImagingVM.<>c__DisplayClass46_0.<<PrepareImage>b__0>d.MoveNext() in C:\Projects\nina\NINA\ViewModel\ImagingVM.cs:line 342
+2025-11-21T16:20:01.1771|ERROR|AnchorableSnapshotVM.cs|SnapImage|414
+System.DivideByZeroException: Attempted to divide by zero.
+   at NINA.Image.ImageAnalysis.BayerFilter16bpp.ProcessFilter(UnmanagedImage sourceData, UnmanagedImage destinationData) in C:\Projects\nina\NINA.Image\ImageAnalysis\BayerFilter16bpp.cs:line 142
+   at Accord.Imaging.Filters.BaseFilter.Apply(BitmapData imageData)
+   at Accord.Imaging.Filters.BaseFilter.Apply(Bitmap image)
+   at NINA.Image.ImageAnalysis.ImageUtility.Debayer(Bitmap bmp, Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageAnalysis\ImageUtility.cs:line 278
+   at NINA.Image.ImageAnalysis.ImageUtility.Debayer(BitmapSource source, PixelFormat pf, Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageAnalysis\ImageUtility.cs:line 227
+   at NINA.Image.ImageData.DebayeredImage.Debayer(IRenderedImage imageData, IProfileService profileService, IStarDetection starDetection, IStarAnnotator starAnnotator, Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageData\DebayeredImage.cs:line 57
+   at NINA.Image.ImageData.RenderedImage.Debayer(Boolean saveColorChannels, Boolean saveLumChannel, SensorType bayerPattern) in C:\Projects\nina\NINA.Image\ImageData\RenderedImage.cs:line 73
+   at NINA.ViewModel.ImageControlVM.PrepareImage(IImageData data, PrepareImageParameters parameters, CancellationToken cancelToken) in C:\Projects\nina\NINA\ViewModel\ImageControlVM.cs:line 621
+   at NINA.ViewModel.ImagingVM.<>c__DisplayClass46_0.<<PrepareImage>b__0>d.MoveNext() in C:\Projects\nina\NINA\ViewModel\ImagingVM.cs:line 342
+--- End of stack trace from previous location ---
+   at NINA.ViewModel.Imaging.AnchorableSnapshotVM.SnapImage(IProgress`1 progress) in C:\Projects\nina\NINA\ViewModel\Imaging\AnchorableSnapshotVM.cs:line 404
+2025-11-21T16:20:14.4006|INFO|ApplicationVM.cs|Closing|288|Application shutting down
+2025-11-21T16:20:14.4083|INFO|DomeVM.cs|Disconnect|336|Disconnected Dome Device
+2025-11-21T16:20:14.4091|INFO|FlatDeviceVM.cs|Disconnect|279|Disconnected Flat Device
+2025-11-21T16:20:14.4151|INFO|CameraVM.cs|Disconnect|645|Disconnected Camera
+2025-11-21T16:20:14.4168|INFO|TelescopeVM.cs|Disconnect|763|Disconnected mount
+2025-11-21T16:20:14.4173|INFO|FilterWheelVM.cs|Disconnect|324|Disconnected Filter Wheel
+2025-11-21T16:20:14.4179|INFO|FocuserVM.cs|Disconnect|426|Disconnected Focuser
+2025-11-21T16:20:14.4187|INFO|RotatorVM.cs|Disconnect|438|Disconnected Rotator
+2025-11-21T16:20:14.4192|INFO|SwitchVM.cs|Disconnect|298|Disconnected Switch
+2025-11-21T16:20:14.4198|INFO|WeatherDataVM.cs|Disconnect|292|Disconnected Weather Device
+2025-11-21T16:20:14.4203|INFO|SafetyMonitorVM.cs|Disconnect|208|Disconnected Safety Monitor

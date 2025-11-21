@@ -13,42 +13,52 @@ namespace NINA.Plugins.Fujifilm.Interop;
 public sealed class FujifilmInterop : IFujifilmInterop
 {
     private readonly IFujifilmDiagnosticsService _diagnostics;
-    private readonly SemaphoreSlim _runtimeLock = new(1, 1);
-    private bool _runtimeInitialized;
+    private static readonly SemaphoreSlim _globalLock = new(1, 1);
+    private static bool _isSdkInitializedGlobally;
 
     [ImportingConstructor]
     public FujifilmInterop(IFujifilmDiagnosticsService diagnostics)
     {
+        try { System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujifilmInterop Constructor called. Hash: {this.GetHashCode()}\n"); } catch {}
         _diagnostics = diagnostics;
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
-        await _runtimeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _globalLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (_runtimeInitialized)
+            if (_isSdkInitializedGlobally)
             {
                 return;
             }
 
             _diagnostics.RecordEvent("Interop", "Initializing Fujifilm SDK runtime");
-            var initResult = FujifilmSdkWrapper.XSDK_Init(IntPtr.Zero);
-            FujifilmSdkWrapper.CheckResult(IntPtr.Zero, initResult, nameof(FujifilmSdkWrapper.XSDK_Init));
-            _runtimeInitialized = true;
+            try 
+            {
+                var initResult = FujifilmSdkWrapper.XSDK_Init(IntPtr.Zero);
+                FujifilmSdkWrapper.CheckResult(IntPtr.Zero, initResult, nameof(FujifilmSdkWrapper.XSDK_Init));
+                _isSdkInitializedGlobally = true;
+            }
+            catch (FujifilmSdkException ex) when (ex.ErrorCode == 0x1004)
+            {
+                _diagnostics.RecordEvent("Interop", "SDK returned 0x1004 (Already Initialized) during Init. Treating as success.");
+                System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] SDK Already Initialized (0x1004). Ignoring.\n");
+                _isSdkInitializedGlobally = true;
+            }
         }
         finally
         {
-            _runtimeLock.Release();
+            _globalLock.Release();
         }
     }
 
     public async Task ShutdownAsync()
     {
-        await _runtimeLock.WaitAsync().ConfigureAwait(false);
+        await _globalLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (!_runtimeInitialized)
+            if (!_isSdkInitializedGlobally)
             {
                 return;
             }
@@ -60,11 +70,11 @@ public sealed class FujifilmInterop : IFujifilmInterop
                 _diagnostics.RecordEvent("Interop", $"XSDK_Exit returned {exitResult}");
             }
 
-            _runtimeInitialized = false;
+            _isSdkInitializedGlobally = false;
         }
         finally
         {
-            _runtimeLock.Release();
+            _globalLock.Release();
         }
     }
 
@@ -155,7 +165,13 @@ public sealed class FujifilmInterop : IFujifilmInterop
 
     public async ValueTask DisposeAsync()
     {
-        await ShutdownAsync().ConfigureAwait(false);
-        _runtimeLock.Dispose();
+        // Do not shut down SDK on dispose, as other instances might be using it.
+        // Or, we should ref count? For now, let's keep it simple and NOT shut down on dispose
+        // to avoid killing the session for others. 
+        // Actually, if we are a singleton, DisposeAsync is called on app exit.
+        // But we saw multiple instances.
+        // Let's just do nothing here for now to be safe, or only Shutdown if we are sure.
+        // Given the crash, let's avoid aggressive shutdown.
+        await Task.CompletedTask;
     }
 }

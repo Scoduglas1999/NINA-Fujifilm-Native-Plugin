@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace NINA.Plugins.Fujifilm.Interop;
 
@@ -8,18 +9,53 @@ internal static class FujifilmSdkWrapper
     private const string SdkDllName = "XAPI.dll";
 
     public const int XSDK_COMPLETE = 0;
+    public const int XSDK_ERROR = -1;
 
     public const int XSDK_DSC_IF_USB = 1;
 
     public const int XSDK_PRIORITY_PC = 0x0002;
 
-    public const int XSDK_RELEASE_SHOOT_S1OFF = 0x0104;
+    // Error Codes (SDK §5)
+    public const int XSDK_ERRCODE_NOERR = 0x0000;
+    public const int XSDK_ERRCODE_SEQUENCE = 0x1001;
+    public const int XSDK_ERRCODE_PARAM = 0x1002;
+    public const int XSDK_ERRCODE_INVALID_CAMERA = 0x1003;
+    public const int XSDK_ERRCODE_LOADLIB = 0x1004;
+    public const int XSDK_ERRCODE_UNSUPPORTED = 0x1005;
+    public const int XSDK_ERRCODE_BUSY = 0x1006;
+    public const int XSDK_ERRCODE_FORCEMODE_BUSY = 0x1007;
+    public const int XSDK_ERRCODE_AF_TIMEOUT = 0x1008;
+    public const int XSDK_ERRCODE_SHOOT_ERROR = 0x1009;
+    public const int XSDK_ERRCODE_FRAME_FULL = 0x100A;
+    public const int XSDK_ERRCODE_STANDBY = 0x1010;
+    public const int XSDK_ERRCODE_NODRIVER = 0x100C;
+    public const int XSDK_ERRCODE_NO_MODEL_MODULE = 0x100D;
+    public const int XSDK_ERRCODE_API_NOTFOUND = 0x100E;
+    public const int XSDK_ERRCODE_API_MISMATCH = 0x100F;
+    public const int XSDK_ERRCODE_COMMUNICATION = 0x2001;
+    public const int XSDK_ERRCODE_TIMEOUT = 0x2002;
+    public const int XSDK_ERRCODE_COMBINATION = 0x2003;
+    public const int XSDK_ERRCODE_WRITEERROR = 0x2004;
+    public const int XSDK_ERRCODE_CARDFULL = 0x2005;
+    public const int XSDK_ERRCODE_HARDWARE = 0x3001;
+    public const int XSDK_ERRCODE_INTERNAL = 0x9001;
+    public const int XSDK_ERRCODE_MEMFULL = 0x9002;
+    public const int XSDK_ERRCODE_UNKNOWN = 0x9100;
+    public const int XSDK_ERRCODE_RUNNING_OTHER_FUNCTION = 0x9101;
+
+    public const int XSDK_RELEASE_SHOOT = 0x0100;
+    public const int XSDK_RELEASE_N_S1OFF = 0x0004;
+    public const int XSDK_RELEASE_SHOOT_S1OFF = XSDK_RELEASE_SHOOT | XSDK_RELEASE_N_S1OFF;
     public const int XSDK_RELEASE_S1ON = 0x0200;
     public const int XSDK_RELEASE_BULBS2_ON = 0x0500;
-    public const int XSDK_RELEASE_N_BULBS1OFF = 0x000C;
+    public const int XSDK_RELEASE_N_BULBS2OFF = 0x0008;
+    public const int XSDK_RELEASE_N_BULBS1OFF = XSDK_RELEASE_N_BULBS2OFF | XSDK_RELEASE_N_S1OFF;
     public const int XSDK_SHUTTER_BULB = -1;
 
     public const int XSDK_DRANGE_100 = 100;
+    public const int XSDK_DRANGE_200 = 200;
+    public const int XSDK_DRANGE_400 = 400;
+    public const int XSDK_DRANGE_800 = 800;
 
     [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_Init")]
     public static extern int XSDK_Init(IntPtr hLib);
@@ -72,6 +108,12 @@ internal static class FujifilmSdkWrapper
     [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_GetAEMode")]
     public static extern int XSDK_GetAEMode(IntPtr hCamera, out int plAEMode);
 
+    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_GetLensInfo")]
+    public static extern int XSDK_GetLensInfo(IntPtr hCamera, out XSDK_LensInformation pLensInfo);
+
+    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_GetLensVersion")]
+    public static extern int XSDK_GetLensVersion(IntPtr hCamera, [MarshalAs(UnmanagedType.LPStr)] StringBuilder pLensVersion);
+
     [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_CapFocusPos")]
     public static extern int XSDK_CapFocusPos(IntPtr hCamera, out int plMin, out int plMax, out int plStep);
 
@@ -102,11 +144,11 @@ internal static class FujifilmSdkWrapper
     [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_GetBufferCapacity")]
     public static extern int XSDK_GetBufferCapacity(IntPtr hCamera, out int plShootFrameNum, out int plTotalFrameNum);
 
-    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_SetDRange")]
-    public static extern int XSDK_SetDRange(IntPtr hCamera, int lDRange);
+    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_SetDynamicRange")]
+    public static extern int XSDK_SetDynamicRange(IntPtr hCamera, int lDRange);
 
-    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_GetDRange")]
-    public static extern int XSDK_GetDRange(IntPtr hCamera, out int plDRange);
+    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_GetDynamicRange")]
+    public static extern int XSDK_GetDynamicRange(IntPtr hCamera, out int plDRange);
 
     [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_GetErrorNumber")]
     public static extern int XSDK_GetErrorNumber(IntPtr hCamera, out int plAPICode, out int plERRCode);
@@ -146,7 +188,20 @@ internal static class FujifilmSdkWrapper
         public int lImagePixWidth;
         public int lImageBitDepth;
         public int lPreviewSize;
-        public IntPtr hCamera;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+    public struct XSDK_LensInformation
+    {
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 20)]
+        public string strModel;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 100)]
+        public string strProductName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 20)]
+        public string strSerialNo;
+        public int lISCapability;
+        public int lMFCapability;
+        public int lZoomPosCapability;
     }
 
     public static void CheckResult(IntPtr cameraHandle, int result, string operation)

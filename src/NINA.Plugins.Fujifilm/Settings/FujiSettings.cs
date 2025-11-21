@@ -9,4 +9,6 @@ public sealed class FujiSettings
     public int BulbReleaseDelayMs { get; set; } = 500;
     public bool AutoDeleteNonRaw { get; set; } = true;
     public int FocusBacklashSteps { get; set; } = 0;
+    public bool SaveNativeRafSidecar { get; set; } = true;
+    public bool EnableExtendedFitsMetadata { get; set; } = true;
 }

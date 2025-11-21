@@ -68,6 +68,7 @@ public partial class SettingsViewModel : ObservableObject
             }
 
             var caps = CameraCapabilities;
+            var metadata = caps.Metadata;
             var isoSummary = caps.IsoValues.Count switch
             {
                 0 => "n/a",
@@ -77,6 +78,12 @@ public partial class SettingsViewModel : ObservableObject
 
             var exposureSummary = caps.MaxExposureSeconds > 0
                 ? $"{caps.MinExposureSeconds:0.###} s – {caps.MaxExposureSeconds:0.###} s"
+                : "n/a";
+            var timedExposureSummary = caps.TimedExposureMaxSeconds > 0
+                ? $"{caps.MinExposureSeconds:0.###} s – {caps.TimedExposureMaxSeconds:0.###} s"
+                : exposureSummary;
+            var bulbExposureSummary = caps.BulbExposureMaxSeconds > 0
+                ? $"{caps.TimedExposureMaxSeconds:0.###} s – {caps.BulbExposureMaxSeconds:0.###} s"
                 : "n/a";
 
             var bufferSummary = caps.BufferTotalCapacity > 0
@@ -94,7 +101,14 @@ public partial class SettingsViewModel : ObservableObject
                 ? $"{caps.LastSdkErrorCode} (API {caps.LastApiErrorCode})"
                 : "None";
 
-            return $"Resolution: {resolutionSummary}\nISO Range: {isoSummary}\nExposure: {exposureSummary}\nSupports Bulb: {bulbSummary}\nBuffer Capacity: {bufferSummary}\n{stateSummary}\nLast Error: {errorSummary}";
+            var bodySummary = string.IsNullOrWhiteSpace(metadata.ProductName)
+                ? "Body: (unknown)"
+                : $"Body: {metadata.ProductName}  FW: {metadata.FirmwareVersion}";
+            var lensSummary = string.IsNullOrWhiteSpace(metadata.LensProductName)
+                ? "Lens: (none detected)"
+                : $"Lens: {metadata.LensProductName}  SN: {metadata.LensSerialNumber}";
+
+            return $"Resolution: {resolutionSummary}\nISO Range: {isoSummary}\nExposure (Timed): {timedExposureSummary}\nExposure (Bulb): {bulbExposureSummary}\nSupports Bulb: {bulbSummary}\nBuffer Capacity: {bufferSummary}\n{stateSummary}\nLast Error: {errorSummary}\n{bodySummary}\n{lensSummary}";
         }
     }
 

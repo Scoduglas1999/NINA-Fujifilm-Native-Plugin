@@ -38,5 +38,6 @@ The `build/Bundle.targets` target produces a zipped plugin package under `dist/`
 - Camera connection, ISO/shutter capability discovery, RAW download, and release sequencing implemented.
 - Autofocus module provides manual focus control via SDK focus position commands.
 - Diagnostics service records events and exports JSON bundles for troubleshooting.
+- Extended LibRaw processing pipeline produces FITS frames with Fuji-specific metadata (ISO, shutter, lens, X-Trans pattern) and optional RAF sidecars for stacking tools.
 
 Refer to the documents in `docs/` for detailed design notes, SDK mappings, and test plans.
