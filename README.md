@@ -1,43 +1,118 @@
-# FujiAF
+# N.I.N.A. Fujifilm Native Plugin
 
-This repository contains a native [N.I.N.A.](https://nighttime-imaging.eu/) plugin that enables direct control of Fujifilm X/GFX cameras, including RAW capture and electronic lens focus management.
+![N.I.N.A.](https://img.shields.io/badge/N.I.N.A.-3.0%2B-purple?style=flat-square)
+![Platform](https://img.shields.io/badge/Platform-Windows_x64-blue?style=flat-square)
+![License](https://img.shields.io/badge/License-Apache_2.0-green?style=flat-square)
 
-## Project Structure
-- `NINA.Plugins.Fujifilm.sln` – Visual Studio solution for the plugin.
-- `src/NINA.Plugins.Fujifilm` – Plugin source code (interop, camera/focuser devices, configuration loader, diagnostics, settings UI).
-- `build/` – MSBuild and PowerShell helpers used for packaging and debug deployment.
-- `dist/` – Generated release artifacts (`.zip` bundles with all required binaries).
-- `docs/` – Design notes, testing plans, and implementation guidance.
+This plugin provides **native integration** for Fujifilm cameras within [N.I.N.A. (Nighttime Imaging 'N' Astronomy)](https://nighttime-imaging.eu/), bypassing the limitations of generic ASCOM drivers. It communicates directly with the camera firmware to offer robust exposure control, accurate metadata handling, and direct lens motor focusing.
 
-## Requirements
-- Visual Studio 2022 (17.10+) with the `.NET desktop development` workload.
-- .NET 7 SDK.
-- Fujifilm Camera Control SDK (64-bit) placed in `src/NINA.Plugins.Fujifilm/Interop/Native`.
-- LibRaw wrapper binaries (`LibRawWrapper.dll`, `libraw.dll`) placed alongside the Fujifilm SDK DLLs.
+---
 
-## Building
+## 🚀 Features
+
+### 📸 Native Camera Support
+*   **Direct USB Connection**: Eliminates the need for intermediate ASCOM drivers, providing a faster and more stable connection loop.
+*   **Smart Metadata Handling**: Automatically detects and writes the correct **Bayer** or **X-Trans** filter patterns to FITS headers.
+    *   *No more grid patterns or incorrect colors in PixInsight/Siril.*
+*   **Exposure Control**: Full support for Bulb mode, ISO selection, and shutter speeds.
+*   **Dual Storage**: Option to save RAW files to the camera's SD card as a backup while transferring FITS data to N.I.N.A.
+
+### 🔭 Electronic Lens Focuser
+*   **Lens Drive**: Exposes your attached electronic lens as a **Focuser Device** in N.I.N.A.
+*   **Autofocus Integration**: Use N.I.N.A.'s advanced autofocus routines (Hocus Focus, Overshoot) to drive the lens motor.
+    *   *Perfect for wide-field rigs using native Fuji glass.*
+
+### 🛠️ Advanced Diagnostics
+*   **Live View**: High-speed frame fetching for plate solving and manual focus.
+*   **Telemetry**: Detailed logging and diagnostic bundling to assist in troubleshooting connection issues.
+
+---
+
+## 📷 Supported Models
+
+The plugin utilizes the official Fujifilm SDK. The following models have verified configuration maps, though others may work:
+
+| Series | Models |
+| :--- | :--- |
+| **GFX System** | GFX 100 II, GFX 100S, GFX 100, GFX 50S II, GFX 50R, GFX 50S |
+| **X-H Series** | X-H2S, X-H2, X-H1 |
+| **X-T Series** | X-T5, X-T4, X-T3, X-T2 |
+| **X-S Series** | X-S20, X-S10 |
+| **Other** | X-Pro3, X-M5 |
+
+*> **Note:** Older models (e.g., X-T1, X-E2) generally lack the tethering protocol required for this plugin.*
+
+---
+
+## ⚙️ Installation & Setup
+
+### Prerequisites
+*   **N.I.N.A. 3.0+** (Beta/Nightly builds recommended for latest plugin API).
+*   **Visual C++ Redistributable (x64)**.
+
+### Installation
+1.  Download the latest release zip from the [**Releases**](../../releases) page.
+2.  Navigate to your local N.I.N.A. plugins directory:
+    ```text
+    %LOCALAPPDATA%\NINA\Plugins\
+    ```
+3.  Create a new folder named `Fujifilm`.
+      - NINA's folder strucutre in here can vary. During development, the `Fujifilm` folder on my system had to be in the `3.0.0` folder.
+5.  Extract the contents of the zip file into this folder.
+6.  Restart N.I.N.A.
+
+### Camera Configuration
+For the plugin to control the camera, ensure your physical camera settings are correct:
+1.  **Connection Mode**: Set to `USB TETHER SHOOTING AUTO` or `PC SHOOT AUTO` (Network/Connection Settings).
+2.  **Drive Dial**: Set to `S` (Single Shot).
+3.  **Focus Mode**:
+    *   If using the **Lens Focuser** feature: Set switch to **S** or **C** (AF).
+    *   If using a telescope: Set switch to **M** (Manual).
+
+---
+
+## 🖥️ Usage in N.I.N.A.
+
+1.  **Connect Camera**:
+    *   Go to **Equipment > Camera**.
+    *   Select **Fujifilm Native Camera** from the dropdown.
+    *   Click the connect button.
+2.  **Connect Focuser** (Optional):
+    *   Go to **Equipment > Focuser**.
+    *   Select **Fujifilm Native Focuser**.
+    *   *Note: This allows the AF routines to move the lens elements.*
+3.  **Imaging**:
+    *   ISO and Shutter speed can be adjusted directly in the Imaging tab.
+    *   Bulb mode is handled automatically for exposures > 30s (depending on model).
+
+---
+
+## 🧑‍💻 Development
+
+To build this project from source, you will need:
+*   **Visual Studio 2022** (or newer).
+*   **.NET 7.0 SDK**.
+*   **Fujifilm SDK**: Due to licensing, the SDK libraries cannot be distributed in this repo. You must apply for the SDK from Fujifilm and place the relevant `.dll` and `.lib` files in `src/NINA.Plugins.Fujifilm/Interop/Native`.
+
 ```powershell
-# Restore packages
-dotnet restore NINA.Plugins.Fujifilm.sln
-
-# Build Debug (copies output to %LOCALAPPDATA%\NINA\Plugins\Fujifilm)
-msbuild NINA.Plugins.Fujifilm.sln /p:Configuration=Debug /p:Platform=x64
-
-# Build Release and produce dist zip
-msbuild NINA.Plugins.Fujifilm.sln /p:Configuration=Release /p:Platform=x64
+# Build command
+dotnet build -c Release
 ```
 
-The `build/Bundle.targets` target produces a zipped plugin package under `dist/` containing the managed assembly, manifest, configuration assets, and native dependencies.
+---
 
-## Installation
-1. Copy the contents of `src/NINA.Plugins.Fujifilm/bin/x64/Debug/` (or the publish folder from a Release build) into `%LOCALAPPDATA%\NINA\Plugins\Fujifilm`.
-2. Start N.I.N.A., enable unsigned plugins if necessary, and restart the application.
-3. Select **Fujifilm Native Camera** from the camera list and configure settings under **Options → Equipment → Plugins**.
+## 🐛 Troubleshooting
 
-## Status
-- Camera connection, ISO/shutter capability discovery, RAW download, and release sequencing implemented.
-- Autofocus module provides manual focus control via SDK focus position commands.
-- Diagnostics service records events and exports JSON bundles for troubleshooting.
-- Extended LibRaw processing pipeline produces FITS frames with Fuji-specific metadata (ISO, shutter, lens, X-Trans pattern) and optional RAF sidecars for stacking tools.
+| Issue | Solution |
+| :--- | :--- |
+| **"Camera Busy"** | The camera is likely writing to the internal SD card buffer. Increase the delay between shots in N.I.N.A. sequencer options. |
+| **Focus Timeout** | Ensure the lens is not set to "Manual Clutch" (physical ring pulled back) on lenses like the 16mm f/1.4 or 23mm f/1.4. |
+| **Connection Failed** | Ensure no other software (Lightroom, Capture One, X Acquire) is running and capturing the USB port. |
 
-Refer to the documents in `docs/` for detailed design notes, SDK mappings, and test plans.
+---
+
+## 📄 License
+
+Distributed under the **Apache 2.0 License**. See `LICENSE` for more information.
+
+*Disclaimer: This software is an independent community project and is not affiliated with, endorsed by, or associated with FUJIFILM Corporation.*
