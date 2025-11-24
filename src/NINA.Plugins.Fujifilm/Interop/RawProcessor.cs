@@ -111,8 +111,10 @@ public static class RawProcessor
                     // Perform debayering ONLY for X-Trans
                     if (IsXTrans(result.ColorFilterPattern))
                     {
-                        var (debayered, debayerError) = PerformDebayering(buffer, width, height);
+                        var (debayered, previewMultipliers, previewBitDepth, debayerError) = PerformDebayering(buffer, width, height);
                         result.DebayeredRgb = debayered;
+                        result.PreviewCameraMultipliers = previewMultipliers ?? Array.Empty<double>();
+                        result.PreviewBitDepth = previewBitDepth;
                         if (!string.IsNullOrEmpty(debayerError))
                         {
                              result.ErrorMessage = (result.ErrorMessage ?? "") + "\n[DebayerLog] " + debayerError;
@@ -188,18 +190,20 @@ public static class RawProcessor
         return result;
     }
 
-    private static (ushort[]? Data, string Error) PerformDebayering(byte[] rawBuffer, int width, int height)
+    private static (ushort[]? Data, double[]? CameraMultipliers, int NativeBitDepth, string Error) PerformDebayering(byte[] rawBuffer, int width, int height)
     {
         IntPtr processor = IntPtr.Zero;
         IntPtr bufferPtr = IntPtr.Zero;
         IntPtr processedImage = IntPtr.Zero;
         var sb = new System.Text.StringBuilder();
+        double[]? previewMultipliers = null;
+        var previewBitDepth = 16;
 
         try
         {
             // Initialize LibRaw
             processor = LibRawNative.libraw_init(0);
-            if (processor == IntPtr.Zero) return (null, "libraw_init failed");
+            if (processor == IntPtr.Zero) return (null, previewMultipliers, previewBitDepth, "libraw_init failed");
 
             // Copy buffer to unmanaged memory
             bufferPtr = Marshal.AllocHGlobal(rawBuffer.Length);
@@ -207,26 +211,24 @@ public static class RawProcessor
 
             // Open and unpack
             int ret = LibRawNative.libraw_open_buffer(processor, bufferPtr, (UIntPtr)rawBuffer.Length);
-            if (ret != LibRawNative.LIBRAW_SUCCESS) return (null, $"libraw_open_buffer failed: {ret}");
+            if (ret != LibRawNative.LIBRAW_SUCCESS) return (null, previewMultipliers, previewBitDepth, $"libraw_open_buffer failed: {ret}");
+
+            ConfigureLibRawPreview(processor);
 
             ret = LibRawNative.libraw_unpack(processor);
-            if (ret != LibRawNative.LIBRAW_SUCCESS) return (null, $"libraw_unpack failed: {ret}");
+            if (ret != LibRawNative.LIBRAW_SUCCESS) return (null, previewMultipliers, previewBitDepth, $"libraw_unpack failed: {ret}");
+
+            previewMultipliers = CaptureCameraMultipliers(processor);
+            previewBitDepth = CaptureNativeBitDepth(processor);
 
             // Process to RGB
-            // Set output parameters for 16-bit linear
-            // We need to access params structure to set output_bps=16, output_color=1 (sRGB) or 0 (raw)
-            // But for now let's try default dcraw_process which usually does 8-bit unless configured.
-            // Wait, we need 16-bit for NINA? NINA handles 16-bit ushort.
-            // LibRaw defaults might be 8-bit.
-            
-            // Let's check what we get.
             ret = LibRawNative.libraw_dcraw_process(processor);
-            if (ret != LibRawNative.LIBRAW_SUCCESS) return (null, $"libraw_dcraw_process failed: {ret}");
+            if (ret != LibRawNative.LIBRAW_SUCCESS) return (null, previewMultipliers, previewBitDepth, $"libraw_dcraw_process failed: {ret}");
 
             // Get processed RGB image
             int errcode = 0;
             processedImage = LibRawNative.libraw_dcraw_make_mem_image(processor, ref errcode);
-            if (processedImage == IntPtr.Zero || errcode != 0) return (null, $"libraw_dcraw_make_mem_image failed: {errcode}");
+            if (processedImage == IntPtr.Zero || errcode != 0) return (null, previewMultipliers, previewBitDepth, $"libraw_dcraw_make_mem_image failed: {errcode}");
 
             // Extract RGB data from processed image
             var imgStruct = Marshal.PtrToStructure<LibRawNative.LibRaw_ProcessedImage>(processedImage);
@@ -234,10 +236,7 @@ public static class RawProcessor
             sb.AppendLine($"Processed Image: Type={imgStruct.type}, W={imgStruct.width}, H={imgStruct.height}, Colors={imgStruct.colors}, Bits={imgStruct.bits}, Size={imgStruct.data_size}");
 
             if (imgStruct.colors != 3)
-                return (null, $"Expected 3 colors, got {imgStruct.colors}. Log: {sb}");
-            
-            // If bits is 8, we need to upsample to 16 for ushort[]? Or just cast?
-            // ushort[] implies 16-bit. If we get 8-bit, we should probably scale it up.
+                return (null, previewMultipliers, previewBitDepth, $"Expected 3 colors, got {imgStruct.colors}. Log: {sb}");
             
             int pixelCount = imgStruct.width * imgStruct.height;
             int rgbDataSize = pixelCount * 3; // 3 channels
@@ -249,10 +248,6 @@ public static class RawProcessor
             if (imgStruct.bits == 16)
             {
                 // Copy RGB data (LibRaw returns 16-bit values)
-                // Note: LibRaw 16-bit data is usually ushort already.
-                // But previous code used short[] tempArray?
-                // Let's assume it's ushort (unsigned).
-                
                 // Marshal.Copy only supports short[], int[], byte[], etc. Not ushort[].
                 // So we copy to short[] and BlockCopy to ushort[].
                 short[] tempArray = new short[rgbDataSize];
@@ -262,24 +257,25 @@ public static class RawProcessor
             else if (imgStruct.bits == 8)
             {
                 // 8-bit data. Copy to byte[] then scale to ushort.
+                // This should happen less often now that we request 16-bit.
                 byte[] tempArray = new byte[rgbDataSize];
                 Marshal.Copy(dataPtr, tempArray, 0, rgbDataSize);
                 for(int i=0; i<rgbDataSize; i++)
                 {
                     rgbData[i] = (ushort)(tempArray[i] * 257); // Scale 0-255 to 0-65535
                 }
-                sb.AppendLine("Scaled 8-bit data to 16-bit.");
+                sb.AppendLine("WARNING: Got 8-bit data despite requesting 16-bit. Scaled to 16-bit.");
             }
             else
             {
-                return (null, $"Unsupported bit depth: {imgStruct.bits}. Log: {sb}");
+                return (null, previewMultipliers, previewBitDepth, $"Unsupported bit depth: {imgStruct.bits}. Log: {sb}");
             }
 
-            return (rgbData, sb.ToString());
+            return (rgbData, previewMultipliers, previewBitDepth, sb.ToString());
         }
         catch (Exception ex)
         {
-            return (null, $"Exception: {ex.Message}\n{ex.StackTrace}\nLog: {sb}");
+            return (null, previewMultipliers, previewBitDepth, $"Exception: {ex.Message}\n{ex.StackTrace}\nLog: {sb}");
         }
         finally
         {
@@ -291,6 +287,87 @@ public static class RawProcessor
             
             if (processor != IntPtr.Zero)
                 LibRawNative.libraw_close(processor);
+        }
+    }
+
+    private static void ConfigureLibRawPreview(IntPtr processor)
+    {
+        TryInvoke(() => LibRawNative.libraw_set_output_bps(processor, 16));
+        TryInvoke(() => LibRawNative.libraw_set_output_color(processor, 0)); // raw, camera space
+        TryInvoke(() => LibRawNative.libraw_set_gamma(processor, 0, 1f));
+        TryInvoke(() => LibRawNative.libraw_set_gamma(processor, 1, 1f));
+        TryInvoke(() => LibRawNative.libraw_set_no_auto_bright(processor, 1));
+        TryInvoke(() => LibRawNative.libraw_set_bright(processor, 1f));
+
+        for (int i = 0; i < 4; i++)
+        {
+            int channel = i;
+            TryInvoke(() => LibRawNative.libraw_set_user_mul(processor, channel, 1f));
+        }
+    }
+
+    private static double[] CaptureCameraMultipliers(IntPtr processor)
+    {
+        var multipliers = new double[4];
+        for (int i = 0; i < multipliers.Length; i++)
+        {
+            multipliers[i] = SafeGet(() => LibRawNative.libraw_get_cam_mul(processor, i));
+            if (double.IsNaN(multipliers[i]) || double.IsInfinity(multipliers[i]) || multipliers[i] <= 0)
+            {
+                multipliers[i] = 1.0;
+            }
+        }
+
+        return multipliers;
+    }
+
+    private static int CaptureNativeBitDepth(IntPtr processor)
+    {
+        var maximum = SafeGet(() => LibRawNative.libraw_get_color_maximum(processor));
+        if (maximum <= 0)
+        {
+            return 16;
+        }
+
+        var depth = (int)Math.Round(Math.Log(maximum + 1, 2), MidpointRounding.AwayFromZero);
+        return Math.Clamp(depth, 8, 16);
+    }
+
+    private static void TryInvoke(Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (DllNotFoundException)
+        {
+        }
+        catch (EntryPointNotFoundException)
+        {
+        }
+    }
+
+    private static int SafeGet(Func<int> getter)
+    {
+        try
+        {
+            return getter();
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private static float SafeGet(Func<float> getter)
+    {
+        try
+        {
+            return getter();
+        }
+        catch
+        {
+            return 0f;
         }
     }
 
@@ -504,6 +581,8 @@ public class RawProcessingResult
     public ushort[]? DebayeredRgb { get; set; }
     public int BlackLevel { get; set; }
     public int WhiteLevel { get; set; }
+    public double[] PreviewCameraMultipliers { get; set; } = Array.Empty<double>();
+    public int PreviewBitDepth { get; set; }
     public string? ErrorMessage { get; set; }
     public string? RafSidecarPath { get; set; }
     public int ActiveLeft { get; set; }

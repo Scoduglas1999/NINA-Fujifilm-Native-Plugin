@@ -59,7 +59,9 @@ internal sealed class CameraImageBuilder
             patternHeight,
             metadata,
             rafPath,
-            debayeredRgb);
+            debayeredRgb,
+            processed.GetCameraMultipliers(),
+            processed.PreviewBitDepth);
     }
 
     private int DetermineDimension(int libRawValue, int rawValue, int fallback)
@@ -266,7 +268,9 @@ public sealed record FujiImagePackage(
     int PatternHeight,
     IReadOnlyDictionary<string, string> FitsKeywords,
     string? RafSidecarPath,
-    ushort[]? DebayeredRgb = null)
+    ushort[]? DebayeredRgb = null,
+    double[]? CameraMultipliers = null,
+    int PreviewBitDepth = 16)
 {
     public static FujiImagePackage Empty { get; } = new(
         Array.Empty<ushort>(),
@@ -284,6 +288,11 @@ public sealed record FujiImagePackage(
     /// Returns null if not available. Data is in RGBRGB... format, length = Width * Height * 3.
     /// </summary>
     public ushort[]? GetDebayeredRgb() => DebayeredRgb;
+
+    public double[]? GetPreviewCameraMultipliers() =>
+        CameraMultipliers != null && CameraMultipliers.Length > 0 ? CameraMultipliers : null;
+
+    public int GetPreviewBitDepth() => PreviewBitDepth;
 
     /// <summary>
     /// Gets XISF-compatible properties from FITS keywords.

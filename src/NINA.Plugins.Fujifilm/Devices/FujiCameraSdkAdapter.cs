@@ -3,23 +3,17 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using NINA.Core.Enum;
-using NINA.Equipment.Interfaces;
-using NINA.Plugins.Fujifilm.Configuration;
-using NINA.Plugins.Fujifilm.Diagnostics;
-using NINA.Plugins.Fujifilm.Interop;
-using NINA.Plugins.Fujifilm.Interop.Native;
-using NINA.Plugins.Fujifilm.Imaging;
-using NINA.Plugins.Fujifilm.Settings;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.Composition;
-using System.Threading;
-using System.Threading.Tasks;
 ﻿using NINA.Core.Utility;
 using NINA.Equipment.Interfaces;
 using NINA.Equipment.Interfaces.ViewModel;
 using NINA.Image.Interfaces;
 using NINA.Plugin.Interfaces;
+using NINA.Plugins.Fujifilm.Configuration;
+using NINA.Plugins.Fujifilm.Diagnostics;
+using NINA.Plugins.Fujifilm.Imaging;
+using NINA.Plugins.Fujifilm.Interop;
+using NINA.Plugins.Fujifilm.Interop.Native;
+using NINA.Plugins.Fujifilm.Settings;
 using NINA.Profile.Interfaces;
 
 namespace NINA.Plugins.Fujifilm.Devices;
@@ -197,7 +191,7 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
 
     public double GetMinExposureTime() => _capabilities.MinExposureSeconds > 0 ? _capabilities.MinExposureSeconds : (_config?.DefaultMinExposure ?? 0.001);
 
-    public void StartExposure(double exposureTime, int width, int height)
+    public DateTime StartExposure(double exposureTime, int width, int height)
     {
         EnsureConnected();
 
@@ -239,6 +233,7 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
             }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }
         _lastExposureStartUtc = DateTime.UtcNow;
+        return _lastExposureStartUtc;
     }
 
     public void StopExposure()
@@ -387,6 +382,8 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
         // which will be written to FITS/XISF files for stacking software.
         // The raw bayer data in package.Pixels is always preserved for proper stacking.
         var debayeredRgb = package.GetDebayeredRgb();
+        var previewMultipliers = package.GetPreviewCameraMultipliers();
+        var previewBitDepth = package.GetPreviewBitDepth();
         if (debayeredRgb != null && package.ColorFilterPattern.StartsWith("XTRANS", StringComparison.OrdinalIgnoreCase))
         {
             _diagnostics.RecordEvent("Adapter", $"X-Trans detected with debayered RGB available from LibRaw (non-destructive).");
@@ -403,8 +400,8 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
             // This preserves the correct image dimensions and provides color.
             try
             {
-                var syntheticBayer = ConvertRgbToSyntheticBayer(debayeredRgb, package.Width, package.Height);
-                _diagnostics.RecordEvent("Adapter", $"Returning Synthetic RGGB data for X-Trans preview ({syntheticBayer.Length} pixels)");
+                var syntheticBayer = ConvertRgbToSyntheticBayer(debayeredRgb, package.Width, package.Height, previewMultipliers);
+                _diagnostics.RecordEvent("Adapter", $"Returning Synthetic RGGB data for X-Trans preview ({syntheticBayer.Length} pixels, previewBitDepth={previewBitDepth}b)");
                 return syntheticBayer;
             }
             catch (Exception ex)
@@ -422,8 +419,10 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
     /// <summary>
     /// Converts RGB data to a synthetic RGGB Bayer pattern.
     /// This allows NINA to display a color preview for X-Trans cameras by treating the data as standard Bayer.
+    /// LibRaw is configured for raw camera space with neutral settings, so we do a direct conversion
+    /// without any color correction to avoid double-processing issues with NINA 3.2's color pipeline.
     /// </summary>
-    private ushort[] ConvertRgbToSyntheticBayer(ushort[] rgbData, int width, int height)
+    private ushort[] ConvertRgbToSyntheticBayer(ushort[] rgbData, int width, int height, double[]? cameraMultipliers)
     {
         var bayer = new ushort[width * height];
         

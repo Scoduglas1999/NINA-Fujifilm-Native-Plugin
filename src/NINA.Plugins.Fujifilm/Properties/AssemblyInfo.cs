@@ -15,7 +15,7 @@ using System.Runtime.InteropServices;
 [assembly: Guid("6E2B5A81-7C8E-4C09-9F2A-4F6A0BC6BB1E")]
 
 [assembly: AssemblyMetadata("TargetApplication", "N.I.N.A.")]
-[assembly: AssemblyMetadata("MinimumApplicationVersion", "3.1.2.9001")]
+[assembly: AssemblyMetadata("MinimumApplicationVersion", "3.2.0.9001")]
 
-[assembly: AssemblyVersion("1.5.0.0")]
-[assembly: AssemblyFileVersion("1.5.0.0")]
+[assembly: AssemblyVersion("2.2.0.0")]
+[assembly: AssemblyFileVersion("2.2.0.0")]

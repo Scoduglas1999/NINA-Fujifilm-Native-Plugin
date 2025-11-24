@@ -41,3 +41,13 @@ C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\Rele
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\Release\net8.0-windows\NINA.Plugins.Fujifilm.pdb
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\Release\net8.0-windows\NINA.Plugins.Fujifilm.genruntimeconfig.cache
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\Release\net8.0-windows\ref\NINA.Plugins.Fujifilm.dll
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\Release\net8.0-windows\runtimes\win-x86\native\WebView2Loader.dll
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\Release\net8.0-windows\runtimes\win-x64\native\WebView2Loader.dll
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\Release\net8.0-windows\runtimes\win-arm64\native\WebView2Loader.dll
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\Release\net8.0-windows\Microsoft.Web.WebView2.Core.dll
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\Release\net8.0-windows\Microsoft.Web.WebView2.WinForms.dll
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\Release\net8.0-windows\Microsoft.Web.WebView2.Wpf.dll
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\Release\net8.0-windows\Microsoft.Web.WebView2.Core.xml
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\Release\net8.0-windows\Microsoft.Web.WebView2.WinForms.xml
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\Release\net8.0-windows\Microsoft.Web.WebView2.Wpf.xml
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\Release\net8.0-windows\NINA.Plu.345BAE76.Up2Date

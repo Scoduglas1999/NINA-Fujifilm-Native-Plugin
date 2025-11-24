@@ -152,7 +152,9 @@ public sealed class LibRawAdapter : ILibRawAdapter
         WhiteLevel: processed.WhiteLevel,
         Status: processed.Status,
         RafSidecarPath: processed.RafSidecarPath,
-        DebayeredRgb: processed.DebayeredRgb
+        DebayeredRgb: processed.DebayeredRgb,
+        CameraMultipliers: processed.PreviewCameraMultipliers,
+        PreviewBitDepth: processed.PreviewBitDepth
     );
 }
 
@@ -231,7 +233,9 @@ public readonly record struct LibRawResult(
     int WhiteLevel,
     LibRawProcessingStatus Status,
     string? RafSidecarPath,
-    ushort[]? DebayeredRgb = null)
+    ushort[]? DebayeredRgb = null,
+    double[]? CameraMultipliers = null,
+    int PreviewBitDepth = 16)
 {
     public bool Success => Status == LibRawProcessingStatus.Success && BayerData.Length > 0 && Width > 0 && Height > 0;
     
@@ -241,6 +245,9 @@ public readonly record struct LibRawResult(
     /// </summary>
     public ushort[]? GetDebayeredRgb() => DebayeredRgb;
 
+    public double[]? GetCameraMultipliers()
+        => CameraMultipliers != null && CameraMultipliers.Length > 0 ? CameraMultipliers : null;
+
     public static LibRawResult FromFailure(LibRawProcessingStatus status, string? rafPath)
-        => new(Array.Empty<ushort>(), 0, 0, string.Empty, 0, 0, 0, 0, status, rafPath, null);
+        => new(Array.Empty<ushort>(), 0, 0, string.Empty, 0, 0, 0, 0, status, rafPath, null, Array.Empty<double>(), 16);
 }

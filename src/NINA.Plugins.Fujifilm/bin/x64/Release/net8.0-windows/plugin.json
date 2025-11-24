@@ -1,7 +1,0 @@
-{
-  "Name": "Fujifilm Native Camera",
-  "Author": "Scdouglas",
-  "Version": "1.5.0.1",
-  "Guid": "6e2b5a81-7c8e-4c09-9f2a-4f6a0bc6bb1e",
-  "Entrypoint": "NINA.Plugins.Fujifilm.Plugin.FujiManifest"
-}

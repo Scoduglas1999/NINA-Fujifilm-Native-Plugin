@@ -68,7 +68,28 @@ internal static class LibRawNative
     public static extern IntPtr libraw_get_imgother(IntPtr data);
 
     [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]
-    public static extern IntPtr libraw_get_image_params(IntPtr data);
+    public static extern void libraw_set_output_color(IntPtr data, int value);
+
+    [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void libraw_set_output_bps(IntPtr data, int value);
+
+    [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void libraw_set_gamma(IntPtr data, int index, float value);
+
+    [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void libraw_set_no_auto_bright(IntPtr data, int value);
+
+    [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void libraw_set_bright(IntPtr data, float value);
+
+    [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void libraw_set_user_mul(IntPtr data, int index, float value);
+
+    [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern float libraw_get_cam_mul(IntPtr data, int index);
+
+    [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern int libraw_get_color_maximum(IntPtr data);
 
     #endregion
 
@@ -359,6 +380,59 @@ internal static class LibRawNative
         public LibRaw_ImageSizes sizes;
         public IntPtr ioparams;
         public LibRaw_ColorData color;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct LibRaw_OutputParams
+    {
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+        public uint[] greybox;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+        public uint[] cropbox;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+        public double[] aber;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 6)]
+        public double[] gamm;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+        public float[] user_mul;
+        public uint shot_select;
+        public float bright;
+        public float threshold;
+        public int half_size;
+        public int four_color_rgb;
+        public int highlight;
+        public int use_auto_wb;
+        public int use_camera_wb;
+        public int use_camera_matrix;
+        public int output_color;
+        public IntPtr output_profile;
+        public IntPtr camera_profile;
+        public IntPtr bad_pixels;
+        public IntPtr dark_frame;
+        public int output_bps;
+        public int output_tiff;
+        public int user_flip;
+        public int user_qual;
+        public int user_black;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+        public int[] user_cblack;
+        public int user_sat;
+        public int med_passes;
+        public int no_auto_bright;
+        public float auto_bright_thr;
+        public float adjust_maximum_thr;
+        public int use_fuji_rotate;
+        public int green_matching;
+        public int dcb_iterations;
+        public int dcb_enhance_fl;
+        public int fbdd_noiserd;
+        public int exp_correc;
+        public float exp_shift;
+        public float exp_preser;
+        public int use_rawspeed;
+        public int use_dng_sdk;
+        public int no_auto_scale;
+        public int no_interpolation;
     }
 
     #endregion
