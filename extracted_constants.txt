@@ -1,0 +1,14 @@
+FOUND STRUCT START
+typedef struct _SDK_FOCUS_POS_CAP {
+long lSizeFocusPosCap;			// sizeof( SDK_FOCUS_POS_CAP )
+long lStructVer;				// Fixed to 0x00010000 on this version
+long lFocusPlsINF;				// INFINITY position
+long lFocusPlsMOD;				// MOD position
+long lFocusOverSearchPlsINF;	// Over search for INFINITY
+long lFocusOverSearchPlsMOD;	// Over search for MOD
+long lFocusPlsFCSDepthCap;		// DOF. If lFocusPlsFCSDepthCap==0, the information of this structure is invalid.
+long lMinDriveStepMFDriveEndThresh;   // Minimum drive steps
+} SDK_FOCUS_POS_CAP, *PSDK_FOCUS_POS_CAP;
+FOUND: API_CODE_SetFocusPos				= 0x2207,
+FOUND: API_CODE_GetFocusPos				= 0x2208,
+FOUND: API_CODE_CapFocusPos				= 0x2259,

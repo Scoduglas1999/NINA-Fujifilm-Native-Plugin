@@ -67,8 +67,8 @@ public class FujiFocuserSdkAdapter : IFocuser, INotifyPropertyChanged
     }
 
     public bool Link { get => Connected; set => Connected = value; }
-    public int MaxIncrement => 1000;
-    public int MaxStep => 10000;
+    public int MaxIncrement => _focuser.FocusRange;
+    public int MaxStep => _focuser.FocusRange;
     
     public int Position 
     { 

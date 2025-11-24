@@ -1,0 +1,17 @@
+=== Sensitivity (ISO) APIs ===
+
+=== Media Record APIs ===
+XT5_API_PARAM_SetMediaRecord              = 1,
+XT5_API_PARAM_GetMediaRecord              = 1,
+XT5_API_CODE_SetMediaRecord              = API_CODE_SDK_SetMediaRecord,
+XT5_API_CODE_GetMediaRecord              = API_CODE_SDK_GetMediaRecord,
+
+=== Bulb/Shutter APIs ===
+
+=== Long Exposure NR APIs ===
+XT5_API_PARAM_CapLongExposureNR           = 2,
+XT5_API_PARAM_SetLongExposureNR           = 1,
+XT5_API_PARAM_GetLongExposureNR           = 1,
+XT5_API_CODE_CapLongExposureNR           = API_CODE_CapLongExposureNR,
+XT5_API_CODE_SetLongExposureNR           = API_CODE_SetLongExposureNR,
+XT5_API_CODE_GetLongExposureNR           = API_CODE_GetLongExposureNR,

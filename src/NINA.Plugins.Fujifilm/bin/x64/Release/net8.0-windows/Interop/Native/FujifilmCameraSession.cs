@@ -17,12 +17,9 @@ public sealed class FujifilmCameraSession : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
-        if (Handle != IntPtr.Zero)
-        {
-            FujifilmSdkWrapper.XSDK_Close(Handle);
-            Handle = IntPtr.Zero;
-        }
-
+        // Handle lifecycle is now managed by FujifilmInterop via reference counting.
+        // We do NOT close the handle here to allow session sharing between Camera and Focuser.
+        Handle = IntPtr.Zero;
         return default;
     }
 }

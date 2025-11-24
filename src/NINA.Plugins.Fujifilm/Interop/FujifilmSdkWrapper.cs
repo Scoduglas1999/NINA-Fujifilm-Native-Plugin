@@ -138,20 +138,65 @@ internal static class FujifilmSdkWrapper
     [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_GetLensVersion")]
     public static extern int XSDK_GetLensVersion(IntPtr hCamera, [MarshalAs(UnmanagedType.LPStr)] StringBuilder pLensVersion);
 
-    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_CapFocusPos")]
-    public static extern int XSDK_CapFocusPos(IntPtr hCamera, out int plMin, out int plMax, out int plStep);
+    // Focus Control API Codes
+    public const int XSDK_API_CODE_SetFocusPos = 0x2207;
+    public const int XSDK_API_CODE_GetFocusPos = 0x2208;
+    public const int XSDK_API_CODE_CapFocusPos = 0x2259;
+    
+    // Focus Control API Parameters (consistent across all camera models)
+    public const int XSDK_API_PARAM_CapFocusPos = 2;
+    public const int XSDK_API_PARAM_SetFocusPos = 1;
+    public const int XSDK_API_PARAM_GetFocusPos = 1;
 
-    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_GetFocusPos")]
-    public static extern int XSDK_GetFocusPos(IntPtr hCamera, out int plFocusPos);
+    // Helper methods wrapping generic property functions
+    public static int XSDK_CapFocusPos(IntPtr hCamera, out XSDK_FOCUS_POS_CAP focusPosCap)
+    {
+        int num = 0;
+        int size = Marshal.SizeOf<XSDK_FOCUS_POS_CAP>();
+        IntPtr pFocusPosCap = Marshal.AllocHGlobal(size);
+        
+        // Initialize struct size and version as per SDK docs
+        var cap = new XSDK_FOCUS_POS_CAP();
+        cap.lSizeFocusPosCap = size;
+        cap.lStructVer = 0x00010000;
+        Marshal.StructureToPtr(cap, pFocusPosCap, false);
 
-    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_SetFocusPos")]
-    public static extern int XSDK_SetFocusPos(IntPtr hCamera, int lFocusPos);
+        System.Diagnostics.Debug.WriteLine($"[FujiSDK] XSDK_CapFocusPos: struct size={size}, API_CODE=0x{XSDK_API_CODE_CapFocusPos:X}, API_PARAM={XSDK_API_PARAM_CapFocusPos}");
 
-    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_SetFocusMode")]
-    public static extern int XSDK_SetFocusMode(IntPtr hCamera, int lFocusMode);
+        try
+        {
+            int result = XSDK_CapProp_Focus(hCamera, XSDK_API_CODE_CapFocusPos, XSDK_API_PARAM_CapFocusPos, ref size, pFocusPosCap);
+            
+            System.Diagnostics.Debug.WriteLine($"[FujiSDK] XSDK_CapFocusPos: result={result}, size after call={size}");
+            
+            focusPosCap = Marshal.PtrToStructure<XSDK_FOCUS_POS_CAP>(pFocusPosCap);
+            
+            System.Diagnostics.Debug.WriteLine($"[FujiSDK] XSDK_CapFocusPos: lSizeFocusPosCap={focusPosCap.lSizeFocusPosCap}, lStructVer=0x{focusPosCap.lStructVer:X}, lFocusPlsINF={focusPosCap.lFocusPlsINF}, lFocusPlsMOD={focusPosCap.lFocusPlsMOD}, lFocusPlsFCSDepthCap={focusPosCap.lFocusPlsFCSDepthCap}");
+            
+            return result;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(pFocusPosCap);
+        }
+    }
 
-    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_SetFocusOperation")]
-    public static extern int XSDK_SetFocusOperation(IntPtr hCamera, int lOperation);
+    public static int XSDK_GetFocusPos(IntPtr hCamera, out int plFocusPos)
+    {
+        long val;
+        int result = XSDK_GetProp(hCamera, XSDK_API_CODE_GetFocusPos, XSDK_API_PARAM_GetFocusPos, out val);
+        plFocusPos = (int)val;
+        return result;
+    }
+
+    public static int XSDK_SetFocusPos(IntPtr hCamera, int lFocusPos)
+    {
+        return XSDK_SetProp(hCamera, XSDK_API_CODE_SetFocusPos, XSDK_API_PARAM_SetFocusPos, lFocusPos);
+    }
+
+    // Specific P/Invoke for CapFocusPos which uses IN/OUT for the size parameter
+    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_CapProp")]
+    private static extern int XSDK_CapProp_Focus(IntPtr hCamera, int lAPICode, int lAPIParam, ref int plSize, IntPtr pData);
 
     [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_Release")]
     public static extern int XSDK_Release(IntPtr hCamera, int lReleaseMode, IntPtr plShotOpt, out int pStatus);
@@ -231,6 +276,19 @@ internal static class FujifilmSdkWrapper
         public int lImagePixWidth;
         public int lImageBitDepth;
         public int lPreviewSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 4)]
+    public struct XSDK_FOCUS_POS_CAP
+    {
+        public int lSizeFocusPosCap;
+        public int lStructVer;
+        public int lFocusPlsINF;
+        public int lFocusPlsMOD;
+        public int lFocusOverSearchPlsINF;
+        public int lFocusOverSearchPlsMOD;
+        public int lFocusPlsFCSDepthCap;
+        public int lMinDriveStepMFDriveEndThresh;
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]

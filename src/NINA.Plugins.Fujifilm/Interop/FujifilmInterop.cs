@@ -248,27 +248,79 @@ public sealed class FujifilmInterop : IFujifilmInterop
         }
     }
 
+    // Dictionary to track open sessions and their reference counts
+    // Key: DeviceId, Value: (Session, RefCount)
+    private readonly Dictionary<string, (FujifilmCameraSession Session, int RefCount)> _openSessions = new();
+
     public async Task<FujifilmCameraSession> OpenCameraAsync(string deviceId, CancellationToken cancellationToken)
     {
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
-        _diagnostics.RecordEvent("Interop", $"Opening Fujifilm camera {deviceId}");
-        int openResult = FujifilmSdkWrapper.XSDK_OpenEx(deviceId, out var handle, out var mode, IntPtr.Zero);
-        FujifilmSdkWrapper.CheckResult(IntPtr.Zero, openResult, nameof(FujifilmSdkWrapper.XSDK_OpenEx));
-        _diagnostics.RecordEvent("Interop", $"Camera handle {handle} opened in mode {mode}");
-        return new FujifilmCameraSession(handle, deviceId);
+        
+        await _globalLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            // Check if we already have an open session for this device
+            if (_openSessions.TryGetValue(deviceId, out var entry))
+            {
+                // Increment reference count
+                entry.RefCount++;
+                _openSessions[deviceId] = entry; // Update struct in dictionary
+                
+                _diagnostics.RecordEvent("Interop", $"Reusing existing session for {deviceId} (RefCount: {entry.RefCount})");
+                return entry.Session;
+            }
+
+            // No existing session, open a new one
+            _diagnostics.RecordEvent("Interop", $"Opening Fujifilm camera {deviceId}");
+            int openResult = FujifilmSdkWrapper.XSDK_OpenEx(deviceId, out var handle, out var mode, IntPtr.Zero);
+            FujifilmSdkWrapper.CheckResult(IntPtr.Zero, openResult, nameof(FujifilmSdkWrapper.XSDK_OpenEx));
+            
+            _diagnostics.RecordEvent("Interop", $"Camera handle {handle} opened in mode {mode}");
+            
+            var session = new FujifilmCameraSession(handle, deviceId);
+            _openSessions[deviceId] = (session, 1);
+            
+            return session;
+        }
+        finally
+        {
+            _globalLock.Release();
+        }
     }
 
-    public Task CloseCameraAsync(FujifilmCameraSession session)
+    public async Task CloseCameraAsync(FujifilmCameraSession session)
     {
         if (session == null || session.Handle == IntPtr.Zero)
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        _diagnostics.RecordEvent("Interop", $"Closing Fujifilm camera {session.DeviceId}");
-        SafeCloseCamera(session.Handle, $"closing session for {session.DeviceId}");
-        session.Handle = IntPtr.Zero;
-        return Task.CompletedTask;
+        await _globalLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_openSessions.TryGetValue(session.DeviceId, out var entry))
+            {
+                entry.RefCount--;
+                
+                if (entry.RefCount > 0)
+                {
+                    _diagnostics.RecordEvent("Interop", $"Decremented RefCount for {session.DeviceId} to {entry.RefCount}. Keeping session open.");
+                    _openSessions[session.DeviceId] = entry; // Update struct
+                    return;
+                }
+                
+                // RefCount is 0, close the session
+                _openSessions.Remove(session.DeviceId);
+            }
+            
+            _diagnostics.RecordEvent("Interop", $"Closing Fujifilm camera {session.DeviceId} (RefCount 0)");
+            SafeCloseCamera(session.Handle, $"closing session for {session.DeviceId}");
+            session.Handle = IntPtr.Zero;
+        }
+        finally
+        {
+            _globalLock.Release();
+        }
     }
 
     public Task<(int Width, int Height)> GetImageInfoAsync(FujifilmCameraSession session)
