@@ -8922,7 +8922,7 @@
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
-    "version": "2.2.0",
+    "version": "2.3.0",
     "restore": {
       "projectUniqueName": "C:\\Users\\scdou\\Documents\\NINA.Fujifilm.Plugin\\src\\NINA.Plugins.Fujifilm\\NINA.Plugins.Fujifilm.csproj",
       "projectName": "NINA.Plugins.Fujifilm",

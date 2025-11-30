@@ -27,7 +27,6 @@ public sealed class FujiSettingsProvider : IFujiSettingsProvider
     [ImportingConstructor]
     public FujiSettingsProvider()
     {
-        try { System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujiSettingsProvider Constructor called\n"); } catch {}
         Settings = LoadSettings();
     }
 

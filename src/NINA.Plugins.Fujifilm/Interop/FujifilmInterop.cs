@@ -20,7 +20,6 @@ public sealed class FujifilmInterop : IFujifilmInterop
     [ImportingConstructor]
     public FujifilmInterop(IFujifilmDiagnosticsService diagnostics)
     {
-        try { System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujifilmInterop Constructor called. Hash: {this.GetHashCode()}\n"); } catch {}
         _diagnostics = diagnostics;
     }
 
@@ -44,7 +43,6 @@ public sealed class FujifilmInterop : IFujifilmInterop
             catch (FujifilmSdkException ex) when (ex.ErrorCode == 0x1004)
             {
                 _diagnostics.RecordEvent("Interop", "SDK returned 0x1004 (Already Initialized) during Init. Treating as success.");
-                System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] SDK Already Initialized (0x1004). Ignoring.\n");
                 _isSdkInitializedGlobally = true;
             }
         }

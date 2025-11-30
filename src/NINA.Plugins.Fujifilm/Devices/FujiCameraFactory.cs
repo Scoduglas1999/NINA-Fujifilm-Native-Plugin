@@ -49,16 +49,13 @@ public sealed class FujiCameraFactory : IFujiCameraFactory
         _catalog = catalog;
         _profileService = profileService;
         _exposureDataFactory = exposureDataFactory;
-        try { System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujiCameraFactory (DirectCamera) Constructor called\n"); } catch {}
     }
 
     public async Task<IReadOnlyList<FujifilmCameraDescriptor>> GetAvailableCamerasAsync(CancellationToken cancellationToken)
     {
         try
         {
-            System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujiCameraFactory.GetAvailableCamerasAsync called\n");
             var cameras = await _interop.DetectCamerasAsync(cancellationToken).ConfigureAwait(false);
-            System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujiCameraFactory: DetectCamerasAsync returned {cameras.Count} items\n");
             
             var descriptors = new List<FujifilmCameraDescriptor>();
 
@@ -71,7 +68,6 @@ public sealed class FujiCameraFactory : IFujiCameraFactory
         }
         catch (Exception ex)
         {
-            System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujiCameraFactory.GetAvailableCamerasAsync FAILED: {ex}\n");
             throw;
         }
     }

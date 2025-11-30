@@ -16,18 +16,12 @@ public sealed class FujifilmDiagnosticsService : IFujifilmDiagnosticsService
 
     public FujifilmDiagnosticsService()
     {
-        try { System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujifilmDiagnosticsService Constructor called\n"); } catch {}
     }
 
     public void RecordEvent(string category, string message)
     {
         var evt = new FujifilmDiagnosticEvent(DateTimeOffset.UtcNow, category, message);
         _events.Enqueue(evt);
-        try 
-        { 
-            System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{evt.Timestamp.ToLocalTime()}] [{category}] {message}\n"); 
-        } 
-        catch {}
     }
 
     public void RecordSdkCall(string apiName, int result, int apiCode, int errorCode)

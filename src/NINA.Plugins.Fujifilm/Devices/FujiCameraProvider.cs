@@ -22,7 +22,6 @@ namespace NINA.Plugins.Fujifilm.Devices;
         [ImportingConstructor]
         public FujiCameraProvider(IFujiCameraFactory factory)
         {
-            try { System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujiCameraProvider Constructor called\n"); } catch {}
             _factory = factory;
         }
 
@@ -30,15 +29,11 @@ namespace NINA.Plugins.Fujifilm.Devices;
         {
             try 
             { 
-                System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujiCameraProvider.GetEquipment called\n"); 
-                
                 var descriptors = _factory.GetAvailableCamerasAsync(CancellationToken.None).GetAwaiter().GetResult();
-                System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujiCameraProvider: Found {descriptors.Count} cameras\n");
 
                 var cameras = new List<ICamera>();
                 foreach (var descriptor in descriptors)
                 {
-                    System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujiCameraProvider: Creating camera for {descriptor.DisplayName}\n");
                     cameras.Add(_factory.CreateGenericCamera(descriptor));
                 }
 
@@ -46,7 +41,6 @@ namespace NINA.Plugins.Fujifilm.Devices;
             } 
             catch (Exception ex)
             {
-                System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujiCameraProvider.GetEquipment FAILED: {ex}\n");
                 return new List<ICamera>();
             }
         }

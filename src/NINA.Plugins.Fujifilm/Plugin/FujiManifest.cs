@@ -15,6 +15,5 @@ public sealed class FujiManifest : PluginBase
 
     public FujiManifest()
     {
-        try { System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] FujiManifest Constructor called\n"); } catch {}
     }
 }

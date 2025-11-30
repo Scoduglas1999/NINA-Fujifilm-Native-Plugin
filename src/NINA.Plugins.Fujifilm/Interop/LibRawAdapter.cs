@@ -29,7 +29,6 @@ public sealed class LibRawAdapter : ILibRawAdapter
         IProfileService profileService,
         ICameraModelCatalog catalog)
     {
-        try { System.IO.File.AppendAllText(@"c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\debug_log.txt", $"[{DateTime.Now}] LibRawAdapter Constructor called\n"); } catch {}
         _diagnostics = diagnostics;
         _profileService = profileService;
         _catalog = catalog;
