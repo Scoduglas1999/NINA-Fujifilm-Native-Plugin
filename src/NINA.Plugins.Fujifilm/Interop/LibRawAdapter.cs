@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using NINA.Plugins.Fujifilm.Configuration.Loading;
 using NINA.Plugins.Fujifilm.Diagnostics;
+using NINA.Plugins.Fujifilm.Settings;
 using NINA.Profile.Interfaces;
 
 namespace NINA.Plugins.Fujifilm.Interop;
@@ -22,16 +23,19 @@ public sealed class LibRawAdapter : ILibRawAdapter
     private readonly IFujifilmDiagnosticsService _diagnostics;
     private readonly IProfileService _profileService;
     private readonly ICameraModelCatalog _catalog;
+    private readonly IFujiSettingsProvider _settingsProvider;
 
     [ImportingConstructor]
     public LibRawAdapter(
         IFujifilmDiagnosticsService diagnostics,
         IProfileService profileService,
-        ICameraModelCatalog catalog)
+        ICameraModelCatalog catalog,
+        IFujiSettingsProvider settingsProvider)
     {
         _diagnostics = diagnostics;
         _profileService = profileService;
         _catalog = catalog;
+        _settingsProvider = settingsProvider;
     }
 
     public async Task<LibRawResult> ProcessRawAsync(byte[] buffer, CancellationToken cancellationToken)
@@ -45,10 +49,13 @@ public sealed class LibRawAdapter : ILibRawAdapter
         return await Task.Run(() =>
         {
             RawProcessingResult processed;
-            
+
+            // Get the demosaic algorithm from settings (enum value maps directly to LibRaw algorithm)
+            var demosaicAlgorithm = (int)_settingsProvider.Settings.PreviewDemosaicQuality;
+
             try
             {
-                processed = RawProcessor.ProcessRawBufferWithMetadata(buffer);
+                processed = RawProcessor.ProcessRawBufferWithMetadata(buffer, demosaicAlgorithm);
             }
             catch (Exception ex)
             {
@@ -236,7 +243,9 @@ public readonly record struct LibRawResult(
     double[]? CameraMultipliers = null,
     int PreviewBitDepth = 16)
 {
-    public bool Success => Status == LibRawProcessingStatus.Success && BayerData.Length > 0 && Width > 0 && Height > 0;
+    // Success if we have either BayerData (for Bayer sensors) OR DebayeredRgb (for X-Trans)
+    public bool Success => Status == LibRawProcessingStatus.Success && Width > 0 && Height > 0 &&
+        (BayerData.Length > 0 || (DebayeredRgb != null && DebayeredRgb.Length > 0));
     
     /// <summary>
     /// Gets debayered RGB data if available from LibRaw (for X-Trans display in NINA).

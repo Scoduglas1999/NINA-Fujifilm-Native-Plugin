@@ -1,0 +1,28 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Minimal dockable panel for Fujifilm lens info -->
+    <DataTemplate x:Key="NINA.Plugins.Fujifilm.UI.FujiLensInfoVM_Dockable">
+        <Border Padding="6" Background="{DynamicResource BackgroundBrush}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Lens:"
+                           Grid.Column="0"
+                           Foreground="{DynamicResource PrimaryBrush}"
+                           FontWeight="SemiBold"
+                           Margin="0,0,8,0"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="{Binding LensText}"
+                           Grid.Column="1"
+                           Foreground="{DynamicResource PrimaryBrush}"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+    </DataTemplate>
+
+</ResourceDictionary>

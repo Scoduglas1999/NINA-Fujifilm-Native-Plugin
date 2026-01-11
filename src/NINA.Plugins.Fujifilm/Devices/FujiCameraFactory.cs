@@ -82,7 +82,7 @@ public sealed class FujiCameraFactory : IFujiCameraFactory
         // We need to manage lifetimes for the camera and libraw adapter
         // Since this factory is Shared, but the adapter is transient/per-connection
         // We'll use the factory's injected instances but we need to be careful about disposal.
-        
+
         // In a proper DI setup, we might want to use a child container or factory delegate.
         // For now, we pass the shared instances. The Adapter should NOT dispose the shared _camera instance
         // if it's meant to be reused, but here _camera is NonShared in the container?
@@ -90,29 +90,32 @@ public sealed class FujiCameraFactory : IFujiCameraFactory
         // But Factory is [PartCreationPolicy(CreationPolicy.Shared)]
         // So _camera is captured once. This means we can only use one camera instance.
         // That's probably fine for now.
-        
+
         // We create a new adapter for each connection attempt/equipment item.
         // We pass 'Empty' disposables because we don't want the adapter to dispose our shared services.
         var sdkAdapter = new FujiCameraSdkAdapter(
-            _camera, 
-            descriptor, 
-            _diagnostics, 
-            _libRaw, 
-            _settingsProvider, 
+            _camera,
+            descriptor,
+            _diagnostics,
+            _libRaw,
+            _settingsProvider,
             _profileService,
-            Disposable.Empty, 
+            Disposable.Empty,
             Disposable.Empty);
-        
+
         // Wrap the IGenericCameraSDK adapter in NINA's GenericCamera to implement ICamera
-        return new GenericCamera(
+        var genericCamera = new GenericCamera(
             descriptor.DisplayName,  // Camera name
             descriptor.DisplayName,  // Camera ID/description
             "Fujifilm Camera Plugin",
-            "1.9.0",
-            false,
+            "2.4.9",
+            true,  // hasBattery = true so NINA shows battery in equipment panel
             sdkAdapter,
             _profileService,
             _exposureDataFactory);
+
+        // Wrap in our custom camera that provides dynamic lens info and auto-refresh
+        return new FujiGenericCamera(genericCamera, sdkAdapter);
     }
 
     public async Task<FujiCameraCapabilities> GetCapabilitiesAsync(FujifilmCameraDescriptor descriptor, CancellationToken cancellationToken)

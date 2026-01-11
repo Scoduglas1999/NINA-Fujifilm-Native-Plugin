@@ -8922,7 +8922,7 @@
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
-    "version": "2.3.0",
+    "version": "2.4.9",
     "restore": {
       "projectUniqueName": "C:\\Users\\scdou\\Documents\\NINA.Fujifilm.Plugin\\src\\NINA.Plugins.Fujifilm\\NINA.Plugins.Fujifilm.csproj",
       "projectName": "NINA.Plugins.Fujifilm",
@@ -8961,7 +8961,7 @@
         "auditLevel": "low",
         "auditMode": "direct"
       },
-      "SdkAnalysisLevel": "9.0.200"
+      "SdkAnalysisLevel": "9.0.300"
     },
     "frameworks": {
       "net8.0-windows7.0": {
@@ -9019,7 +9019,7 @@
             "privateAssets": "none"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.203/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.308/PortableRuntimeIdentifierGraph.json"
       }
     }
   },

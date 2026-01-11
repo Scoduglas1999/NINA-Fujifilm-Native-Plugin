@@ -46,10 +46,28 @@ public class FujiFocuserSdkAdapter : IFocuser, INotifyPropertyChanged
         }
     }
 
-    public string Name => _descriptor.DisplayName;
-    public string Description => "Fujifilm Native Focuser";
+    public string Name
+    {
+        get
+        {
+            if (!_connected || string.IsNullOrWhiteSpace(_focuser.LensProductName))
+                return _descriptor.DisplayName;
+            return $"{_descriptor.DisplayName} ({_focuser.LensProductName})";
+        }
+    }
+
+    public string Description
+    {
+        get
+        {
+            if (!_connected || string.IsNullOrWhiteSpace(_focuser.LensProductName))
+                return "Fujifilm Native Focuser";
+            return $"Fujifilm Lens: {_focuser.LensProductName}";
+        }
+    }
+
     public string DriverInfo => "Fujifilm Native Driver";
-    public string DriverVersion => "1.6";
+    public string DriverVersion => "2.4.9";
     public int InterfaceVersion => 1;
 
     public bool Absolute => true;
@@ -103,7 +121,10 @@ public class FujiFocuserSdkAdapter : IFocuser, INotifyPropertyChanged
             _connected = true;
             OnPropertyChanged(nameof(Connected));
             OnPropertyChanged(nameof(Link));
-            _diagnostics.RecordEvent("FocuserAdapter", $"Connected to {_descriptor.DisplayName}");
+            OnPropertyChanged(nameof(Name));
+            OnPropertyChanged(nameof(Description));
+            OnPropertyChanged(nameof(DisplayName));
+            _diagnostics.RecordEvent("FocuserAdapter", $"Connected to {_descriptor.DisplayName}, Lens: {_focuser.LensProductName}");
             return true;
         }
         catch (Exception ex)

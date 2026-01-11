@@ -1,0 +1,21 @@
+{
+  "ModelName": "X-T5",
+  "CameraXSize": 7728,
+  "CameraYSize": 5152,
+  "PixelSizeX": 3.04,
+  "PixelSizeY": 3.04,
+  "MaxAdu": 65535,
+  "DefaultMinSensitivity": 125,
+  "DefaultMaxSensitivity": 12800,
+  "DefaultMinExposure": 0.00000555555,
+  "DefaultMaxExposure": 3600.0,
+  "DefaultBulbCapable": true,
+  "SdkConstants": {
+    "ModeManual": 1,
+    "FocusModeManual": 1,
+    "ImageQualityRaw": 1,
+    "ImageQualityRawFine": 4,
+    "ImageQualityRawNormal": 5,
+    "ImageQualityRawSuperfine": 7
+  }
+}

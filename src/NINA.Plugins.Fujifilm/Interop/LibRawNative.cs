@@ -91,6 +91,16 @@ internal static class LibRawNative
     [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]
     public static extern int libraw_get_color_maximum(IntPtr data);
 
+    // Demosaicing algorithm quality setting
+    // 0=linear, 1=VNG, 2=PPG, 3=AHD (default), 4=DCB, 11=DHT, 12=AAHD
+    // For X-Trans: 11 (DHT) is optimized for X-Trans sensors
+    [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void libraw_set_demosaic(IntPtr data, int value);
+
+    // Alias for older LibRaw versions
+    [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl, EntryPoint = "libraw_set_demosaic")]
+    public static extern void libraw_set_user_qual(IntPtr data, int value);
+
     #endregion
 
     #region Structures

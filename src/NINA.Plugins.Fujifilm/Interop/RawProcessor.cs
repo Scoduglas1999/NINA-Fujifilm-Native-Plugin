@@ -42,12 +42,12 @@ public static class RawProcessor
         }
     }
 
-    public static RawProcessingResult ProcessRawBuffer(byte[] buffer)
+    public static RawProcessingResult ProcessRawBuffer(byte[] buffer, int demosaicAlgorithm = 0)
     {
-        return ProcessRawBufferWithMetadata(buffer);
+        return ProcessRawBufferWithMetadata(buffer, demosaicAlgorithm);
     }
 
-    public static RawProcessingResult ProcessRawBufferWithMetadata(byte[] buffer)
+    public static RawProcessingResult ProcessRawBufferWithMetadata(byte[] buffer, int demosaicAlgorithm = 0)
     {
         var result = new RawProcessingResult
         {
@@ -69,7 +69,44 @@ public static class RawProcessor
             return result;
         }
 
-        // Try LibRawWrapper.dll first (most reliable)
+        // OPTIMIZATION: Try single-pass X-Trans processing first
+        // This combines pattern detection, dimensions, crop, and debayering into ONE LibRaw session
+        var xtransResult = TryProcessXTransSinglePass(buffer, demosaicAlgorithm);
+        if (xtransResult.IsXTrans)
+        {
+            if (xtransResult.Success)
+            {
+                result.Success = true;
+                result.Status = LibRawProcessingStatus.Success;
+                result.Width = xtransResult.CroppedWidth;
+                result.Height = xtransResult.CroppedHeight;
+                result.ColorFilterPattern = "XTRANS";
+                result.PatternWidth = 6;
+                result.PatternHeight = 6;
+                result.DebayeredRgb = xtransResult.DebayeredRgb;
+                result.PreviewCameraMultipliers = xtransResult.CameraMultipliers ?? Array.Empty<double>();
+                result.PreviewBitDepth = xtransResult.PreviewBitDepth;
+                result.ActiveLeft = 0; // Already cropped
+                result.ActiveTop = 0;
+                result.ActiveWidth = xtransResult.CroppedWidth;
+                result.ActiveHeight = xtransResult.CroppedHeight;
+
+                // For X-Trans, BayerData is not used - GetExposure converts DebayeredRgb directly
+                // We set a minimal placeholder to avoid null issues, but Success check uses DebayeredRgb
+                result.BayerData = Array.Empty<ushort>();
+
+                result.ErrorMessage = $"[XTrans SinglePass] {xtransResult.Log}";
+                return result;
+            }
+            else
+            {
+                // X-Trans detected but processing failed - add diagnostic info
+                result.ErrorMessage = $"[XTrans SinglePass Failed] {xtransResult.Log}";
+                // Fall through to try LibRawWrapper as backup
+            }
+        }
+
+        // Bayer sensor path (GFX cameras) or X-Trans fallback: use LibRawWrapper
         if (_processMethod != null)
         {
             try
@@ -77,13 +114,13 @@ public static class RawProcessor
                 // C++ signature: int ProcessRawBuffer(byte[] rawBuffer, out ushort[,] bayerData, out int width, out int height)
                 object[] parameters = new object[] { buffer, null, 0, 0 };
                 var returnCode = _processMethod.Invoke(null, parameters);
-                
+
                 // Extract out parameters
                 var bayerData2D = parameters[1] as Array;
                 int width = parameters[2] is int w ? w : 0;
                 int height = parameters[3] is int h ? h : 0;
                 int librawCode = returnCode is int code ? code : -1;
-                
+
                 if (librawCode == 0 && bayerData2D != null && width > 0 && height > 0) // LIBRAW_SUCCESS = 0
                 {
                     result.Success = true;
@@ -91,36 +128,20 @@ public static class RawProcessor
                     result.Width = width;
                     result.Height = height;
                     result.BayerData = ConvertToLinear(bayerData2D);
-                    
-                    // Get correct pattern using P/Invoke (lightweight metadata read)
-                    var patternInfo = GetPatternFromLibRaw(buffer);
-                    result.ColorFilterPattern = patternInfo.Pattern;
-                    result.PatternWidth = patternInfo.Width;
-                    result.PatternHeight = patternInfo.Height;
 
-                    // Get Crop Info
-                    var (cropLeft, cropTop, cropWidth, cropHeight, cropLog) = GetCropInfoFromLibRaw(buffer);
+                    // For Bayer sensors, we still need pattern and crop info
+                    // But we can combine these into one pass
+                    var (pattern, patWidth, patHeight, cropLeft, cropTop, cropWidth, cropHeight, metaLog) = GetBayerMetadataSinglePass(buffer);
+                    result.ColorFilterPattern = pattern;
+                    result.PatternWidth = patWidth;
+                    result.PatternHeight = patHeight;
                     result.ActiveLeft = cropLeft;
                     result.ActiveTop = cropTop;
                     result.ActiveWidth = cropWidth;
                     result.ActiveHeight = cropHeight;
-                    
-                    // Append crop log to error message for diagnostics (even if success)
-                    result.ErrorMessage = (result.ErrorMessage ?? "") + "\n[CropLog] " + cropLog;
 
-                    // Perform debayering ONLY for X-Trans
-                    if (IsXTrans(result.ColorFilterPattern))
-                    {
-                        var (debayered, previewMultipliers, previewBitDepth, debayerError) = PerformDebayering(buffer, width, height);
-                        result.DebayeredRgb = debayered;
-                        result.PreviewCameraMultipliers = previewMultipliers ?? Array.Empty<double>();
-                        result.PreviewBitDepth = previewBitDepth;
-                        if (!string.IsNullOrEmpty(debayerError))
-                        {
-                             result.ErrorMessage = (result.ErrorMessage ?? "") + "\n[DebayerLog] " + debayerError;
-                        }
-                    }
-                    
+                    result.ErrorMessage = (result.ErrorMessage ?? "") + "\n[BayerMeta] " + metaLog;
+
                     return result;
                 }
                 else
@@ -159,13 +180,315 @@ public static class RawProcessor
             string assemblyLocation = Assembly.GetExecutingAssembly().Location;
             string assemblyDirectory = Path.GetDirectoryName(assemblyLocation) ?? string.Empty;
             string wrapperPath = Path.Combine(assemblyDirectory, "Interop", "Native", "LibRawWrapper.dll");
-            
+
             bool fileExists = File.Exists(wrapperPath);
             result.ErrorMessage = $"LibRawWrapper.dll not loaded. Path: {wrapperPath}, Exists: {fileExists}, TypeLoaded: {_wrapperType != null}, MethodLoaded: {_processMethod != null}";
         }
 
         result.Status = LibRawProcessingStatus.WrapperUnavailable;
         return result;
+    }
+
+    /// <summary>
+    /// Single-pass X-Trans processing: detects X-Trans sensor and gets all metadata + debayered RGB in one LibRaw session.
+    /// This replaces 4 separate passes (LibRawWrapper + GetPattern + GetCrop + Debayer) with just 1 pass.
+    /// </summary>
+    private static XTransSinglePassResult TryProcessXTransSinglePass(byte[] rawBuffer, int demosaicAlgorithm = 0)
+    {
+        var result = new XTransSinglePassResult { IsXTrans = false, Success = false };
+        var log = new System.Text.StringBuilder();
+
+        IntPtr processor = IntPtr.Zero;
+        IntPtr bufferPtr = IntPtr.Zero;
+        IntPtr processedImage = IntPtr.Zero;
+
+        try
+        {
+            processor = LibRawNative.libraw_init(0);
+            if (processor == IntPtr.Zero)
+            {
+                log.AppendLine("libraw_init failed");
+                result.Log = log.ToString();
+                return result;
+            }
+
+            bufferPtr = Marshal.AllocHGlobal(rawBuffer.Length);
+            Marshal.Copy(rawBuffer, 0, bufferPtr, rawBuffer.Length);
+
+            int ret = LibRawNative.libraw_open_buffer(processor, bufferPtr, (UIntPtr)rawBuffer.Length);
+            if (ret != LibRawNative.LIBRAW_SUCCESS)
+            {
+                log.AppendLine($"libraw_open_buffer failed: {ret}");
+                result.Log = log.ToString();
+                return result;
+            }
+
+            // Check if X-Trans by reading filters field
+            IntPtr iparamsPtr = LibRawNative.libraw_get_iparams(processor);
+            if (iparamsPtr == IntPtr.Zero)
+            {
+                log.AppendLine("libraw_get_iparams returned null");
+                result.Log = log.ToString();
+                return result;
+            }
+
+            var iparams = Marshal.PtrToStructure<LibRawNative.LibRaw_ImageParams>(iparamsPtr);
+
+            if (iparams.filters != 9) // Not X-Trans
+            {
+                log.AppendLine($"Not X-Trans (filters={iparams.filters})");
+                result.IsXTrans = false;
+                result.Log = log.ToString();
+                return result;
+            }
+
+            // It's X-Trans! Now do everything in this single session
+            result.IsXTrans = true;
+            log.AppendLine("X-Trans detected");
+
+            // Get image sizes for crop info
+            IntPtr sizesPtr = IntPtr.Add(processor, 8);
+            var sizes = Marshal.PtrToStructure<LibRawNative.LibRaw_ImageSizes>(sizesPtr);
+            log.AppendLine($"Sizes: raw={sizes.raw_width}x{sizes.raw_height}, active={sizes.width}x{sizes.height}, margins=({sizes.left_margin},{sizes.top_margin})");
+
+            // Configure for 16-bit output with selected demosaic algorithm
+            ConfigureLibRawPreview(processor, demosaicAlgorithm);
+
+            // Unpack the raw data
+            ret = LibRawNative.libraw_unpack(processor);
+            if (ret != LibRawNative.LIBRAW_SUCCESS)
+            {
+                log.AppendLine($"libraw_unpack failed: {ret}");
+                result.Log = log.ToString();
+                return result;
+            }
+
+            // Capture camera multipliers and bit depth before processing
+            result.CameraMultipliers = CaptureCameraMultipliers(processor);
+            result.PreviewBitDepth = CaptureNativeBitDepth(processor);
+
+            // Process to RGB (this does the X-Trans demosaicing)
+            ret = LibRawNative.libraw_dcraw_process(processor);
+            if (ret != LibRawNative.LIBRAW_SUCCESS)
+            {
+                log.AppendLine($"libraw_dcraw_process failed: {ret}");
+                result.Log = log.ToString();
+                return result;
+            }
+
+            // Get processed RGB image
+            int errcode = 0;
+            processedImage = LibRawNative.libraw_dcraw_make_mem_image(processor, ref errcode);
+            if (processedImage == IntPtr.Zero || errcode != 0)
+            {
+                log.AppendLine($"libraw_dcraw_make_mem_image failed: {errcode}");
+                result.Log = log.ToString();
+                return result;
+            }
+
+            var imgStruct = Marshal.PtrToStructure<LibRawNative.LibRaw_ProcessedImage>(processedImage);
+            log.AppendLine($"Processed: {imgStruct.width}x{imgStruct.height}, colors={imgStruct.colors}, bits={imgStruct.bits}");
+
+            if (imgStruct.colors != 3)
+            {
+                log.AppendLine($"Expected 3 colors, got {imgStruct.colors}");
+                result.Log = log.ToString();
+                return result;
+            }
+
+            // Apply safe width reduction (same as GetCropInfoFromLibRaw)
+            int safeWidth = imgStruct.width - 48;
+            if (safeWidth % 2 != 0) safeWidth--;
+            int safeHeight = imgStruct.height;
+            log.AppendLine($"Safe dimensions: {safeWidth}x{safeHeight}");
+
+            // Extract RGB data
+            int fullPixelCount = imgStruct.width * imgStruct.height;
+            int fullRgbSize = fullPixelCount * 3;
+            ushort[] fullRgbData = new ushort[fullRgbSize];
+
+            IntPtr dataPtr = IntPtr.Add(processedImage, Marshal.SizeOf<LibRawNative.LibRaw_ProcessedImage>());
+
+            if (imgStruct.bits == 16)
+            {
+                short[] tempArray = new short[fullRgbSize];
+                Marshal.Copy(dataPtr, tempArray, 0, fullRgbSize);
+                Buffer.BlockCopy(tempArray, 0, fullRgbData, 0, fullRgbSize * sizeof(ushort));
+            }
+            else if (imgStruct.bits == 8)
+            {
+                byte[] tempArray = new byte[fullRgbSize];
+                Marshal.Copy(dataPtr, tempArray, 0, fullRgbSize);
+                for (int i = 0; i < fullRgbSize; i++)
+                {
+                    fullRgbData[i] = (ushort)(tempArray[i] * 257);
+                }
+                log.AppendLine("Scaled 8-bit to 16-bit");
+            }
+            else
+            {
+                log.AppendLine($"Unsupported bit depth: {imgStruct.bits}");
+                result.Log = log.ToString();
+                return result;
+            }
+
+            // Crop the RGB data to safe dimensions
+            int croppedRgbSize = safeWidth * safeHeight * 3;
+            ushort[] croppedRgbData = new ushort[croppedRgbSize];
+
+            for (int y = 0; y < safeHeight; y++)
+            {
+                int srcOffset = y * imgStruct.width * 3;
+                int destOffset = y * safeWidth * 3;
+                Array.Copy(fullRgbData, srcOffset, croppedRgbData, destOffset, safeWidth * 3);
+            }
+
+            result.DebayeredRgb = croppedRgbData;
+            result.CroppedWidth = safeWidth;
+            result.CroppedHeight = safeHeight;
+            result.Success = true;
+            log.AppendLine($"Success! Final: {safeWidth}x{safeHeight}, RGB size={croppedRgbData.Length}");
+            result.Log = log.ToString();
+            return result;
+        }
+        catch (Exception ex)
+        {
+            log.AppendLine($"Exception: {ex.GetType().Name} - {ex.Message}");
+            result.Log = log.ToString();
+            return result;
+        }
+        finally
+        {
+            if (processedImage != IntPtr.Zero)
+                LibRawNative.libraw_dcraw_clear_mem(processedImage);
+            if (bufferPtr != IntPtr.Zero)
+                Marshal.FreeHGlobal(bufferPtr);
+            if (processor != IntPtr.Zero)
+                LibRawNative.libraw_close(processor);
+        }
+    }
+
+    private struct XTransSinglePassResult
+    {
+        public bool IsXTrans;
+        public bool Success;
+        public int CroppedWidth;
+        public int CroppedHeight;
+        public ushort[]? DebayeredRgb;
+        public double[]? CameraMultipliers;
+        public int PreviewBitDepth;
+        public string Log;
+    }
+
+    /// <summary>
+    /// Creates synthetic RGGB Bayer data from debayered RGB for compatibility.
+    /// NINA expects BayerData to have Length > 0 for Success checks.
+    /// </summary>
+    private static ushort[] CreateSyntheticBayerFromRgb(ushort[]? rgb, int width, int height)
+    {
+        if (rgb == null || rgb.Length == 0 || width <= 0 || height <= 0)
+            return new ushort[1]; // Return minimal array to pass Success check
+
+        // Create RGGB pattern from RGB data
+        // Layout: R G / G B in 2x2 blocks
+        int bayerSize = width * height;
+        ushort[] bayer = new ushort[bayerSize];
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                int rgbIdx = (y * width + x) * 3;
+                int bayerIdx = y * width + x;
+
+                // Determine which color based on position in 2x2 block
+                bool evenRow = (y % 2) == 0;
+                bool evenCol = (x % 2) == 0;
+
+                if (evenRow && evenCol)
+                    bayer[bayerIdx] = rgb[rgbIdx];     // R
+                else if (evenRow && !evenCol)
+                    bayer[bayerIdx] = rgb[rgbIdx + 1]; // G
+                else if (!evenRow && evenCol)
+                    bayer[bayerIdx] = rgb[rgbIdx + 1]; // G
+                else
+                    bayer[bayerIdx] = rgb[rgbIdx + 2]; // B
+            }
+        }
+
+        return bayer;
+    }
+
+    /// <summary>
+    /// Single-pass Bayer metadata extraction: gets pattern and crop info in one LibRaw session.
+    /// This replaces 2 separate passes (GetPattern + GetCrop) with 1 pass.
+    /// </summary>
+    private static (string Pattern, int PatWidth, int PatHeight, int CropLeft, int CropTop, int CropWidth, int CropHeight, string Log) GetBayerMetadataSinglePass(byte[] rawBuffer)
+    {
+        var log = new System.Text.StringBuilder();
+        IntPtr processor = IntPtr.Zero;
+        IntPtr bufferPtr = IntPtr.Zero;
+
+        try
+        {
+            processor = LibRawNative.libraw_init(0);
+            if (processor == IntPtr.Zero)
+            {
+                log.AppendLine("libraw_init failed");
+                return ("RGGB", 2, 2, 0, 0, 0, 0, log.ToString());
+            }
+
+            bufferPtr = Marshal.AllocHGlobal(rawBuffer.Length);
+            Marshal.Copy(rawBuffer, 0, bufferPtr, rawBuffer.Length);
+
+            if (LibRawNative.libraw_open_buffer(processor, bufferPtr, (UIntPtr)rawBuffer.Length) != LibRawNative.LIBRAW_SUCCESS)
+            {
+                log.AppendLine("libraw_open_buffer failed");
+                return ("RGGB", 2, 2, 0, 0, 0, 0, log.ToString());
+            }
+
+            // Get pattern
+            string pattern = "RGGB";
+            int patWidth = 2, patHeight = 2;
+
+            IntPtr iparamsPtr = LibRawNative.libraw_get_iparams(processor);
+            if (iparamsPtr != IntPtr.Zero)
+            {
+                var iparams = Marshal.PtrToStructure<LibRawNative.LibRaw_ImageParams>(iparamsPtr);
+                if (iparams.filters == 9)
+                {
+                    pattern = "XTRANS";
+                    patWidth = 6;
+                    patHeight = 6;
+                }
+                else
+                {
+                    pattern = DecodeBayerPattern(iparams.filters);
+                }
+                log.AppendLine($"Pattern={pattern}, filters={iparams.filters}");
+            }
+
+            // Get crop info
+            IntPtr sizesPtr = IntPtr.Add(processor, 8);
+            var sizes = Marshal.PtrToStructure<LibRawNative.LibRaw_ImageSizes>(sizesPtr);
+
+            int safeWidth = sizes.width - 48;
+            if (safeWidth % 2 != 0) safeWidth--;
+
+            log.AppendLine($"Sizes: {sizes.width}x{sizes.height} -> {safeWidth}x{sizes.height}");
+
+            return (pattern, patWidth, patHeight, sizes.left_margin, sizes.top_margin, safeWidth, sizes.height, log.ToString());
+        }
+        catch (Exception ex)
+        {
+            log.AppendLine($"Exception: {ex.Message}");
+            return ("RGGB", 2, 2, 0, 0, 0, 0, log.ToString());
+        }
+        finally
+        {
+            if (bufferPtr != IntPtr.Zero) Marshal.FreeHGlobal(bufferPtr);
+            if (processor != IntPtr.Zero) LibRawNative.libraw_close(processor);
+        }
     }
 
     private static RawProcessingResult MapWrapperResult(object wrapperResult)
@@ -290,7 +613,7 @@ public static class RawProcessor
         }
     }
 
-    private static void ConfigureLibRawPreview(IntPtr processor)
+    private static void ConfigureLibRawPreview(IntPtr processor, int demosaicAlgorithm = 0)
     {
         TryInvoke(() => LibRawNative.libraw_set_output_bps(processor, 16));
         TryInvoke(() => LibRawNative.libraw_set_output_color(processor, 0)); // raw, camera space
@@ -298,6 +621,10 @@ public static class RawProcessor
         TryInvoke(() => LibRawNative.libraw_set_gamma(processor, 1, 1f));
         TryInvoke(() => LibRawNative.libraw_set_no_auto_bright(processor, 1));
         TryInvoke(() => LibRawNative.libraw_set_bright(processor, 1f));
+
+        // Set demosaicing algorithm for preview
+        // 0=linear (fastest), 1=VNG, 2=PPG, 3=AHD (slowest/best)
+        TryInvoke(() => LibRawNative.libraw_set_demosaic(processor, demosaicAlgorithm));
 
         for (int i = 0; i < 4; i++)
         {

@@ -24,10 +24,12 @@ public sealed class FujiFocuser : IAsyncDisposable
     private int _focusMin;
     private int _focusMax;
     private int _focusStep;
+    private string _lensProductName = string.Empty;
 
     public int FocusMin => _focusMin;
     public int FocusMax => _focusMax;
     public int FocusRange => _focusMax - _focusMin;
+    public string LensProductName => _lensProductName;
 
     [ImportingConstructor]
     public FujiFocuser(IFujifilmInterop interop, ICameraModelCatalog catalog, IFujifilmDiagnosticsService diagnostics)
@@ -111,6 +113,7 @@ public sealed class FujiFocuser : IAsyncDisposable
         // }
 
         QueryFocusLimits();
+        QueryLensInfo();
         return _session;
     }
 
@@ -152,6 +155,32 @@ public sealed class FujiFocuser : IAsyncDisposable
         _focusStep = cap.lMinDriveStepMFDriveEndThresh > 0 ? cap.lMinDriveStepMFDriveEndThresh : 1;
 
         _diagnostics.RecordEvent("Focuser", $"Focus range min={_focusMin} max={_focusMax} step={_focusStep} (INF={cap.lFocusPlsINF}, MOD={cap.lFocusPlsMOD})");
+    }
+
+    private void QueryLensInfo()
+    {
+        if (_session == null)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = FujifilmSdkWrapper.XSDK_GetLensInfo(_session.Handle, out var lensInfo);
+            if (result == FujifilmSdkWrapper.XSDK_COMPLETE)
+            {
+                _lensProductName = lensInfo.strProductName?.Trim() ?? string.Empty;
+                _diagnostics.RecordEvent("Focuser", $"Lens detected: {_lensProductName}");
+            }
+            else
+            {
+                _diagnostics.RecordEvent("Focuser", $"XSDK_GetLensInfo failed: result={result}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.RecordEvent("Focuser", $"Lens info query error: {ex.Message}");
+        }
     }
 
     public async ValueTask DisposeAsync()

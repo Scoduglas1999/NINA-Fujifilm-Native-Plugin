@@ -1,4 +1,4 @@
-$dll = Get-ChildItem -Path "c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin" -Filter "NINA.Plugins.Fujifilm.dll" -Recurse | Select-Object -First 1
+$dll = Get-ChildItem -Path "c:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\x64\Release" -Filter "NINA.Plugins.Fujifilm.dll" -Recurse | Select-Object -First 1
 if ($null -eq $dll) {
     Write-Error "Could not find NINA.Plugins.Fujifilm.dll"
     exit 1
@@ -7,7 +7,7 @@ if ($null -eq $dll) {
 $sourceDir = $dll.DirectoryName
 Write-Host "Found DLL at: $sourceDir"
 
-$target = Join-Path $env:LOCALAPPDATA "NINA\Plugins\Fujifilm"
+$target = Join-Path $env:LOCALAPPDATA "NINA\Plugins\3.0.0\Fujifilm"
 New-Item -ItemType Directory -Force -Path $target | Out-Null
 
 Write-Host "Deploying to: $target"

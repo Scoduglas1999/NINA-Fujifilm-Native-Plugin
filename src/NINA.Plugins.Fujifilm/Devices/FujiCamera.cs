@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.ComponentModel.Composition;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,9 +17,16 @@ using NINA.Plugins.Fujifilm.Settings;
 namespace NINA.Plugins.Fujifilm.Devices;
 
 [Export(typeof(FujiCamera))]
-[PartCreationPolicy(CreationPolicy.NonShared)]
-public sealed class FujiCamera : IAsyncDisposable
+[PartCreationPolicy(CreationPolicy.Shared)]
+public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler PropertyChanged;
+
+    private void RaisePropertyChanged([CallerMemberName] string propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
     private readonly IFujifilmInterop _interop;
     private readonly ICameraModelCatalog _catalog;
     private readonly IFujiSettingsProvider _settingsProvider;
@@ -320,14 +329,23 @@ public sealed class FujiCamera : IAsyncDisposable
         // Cache capabilities (ISO, shutter speeds) - must be done after DR is set
         CacheCapabilities();
         RefreshBufferCapacity();
+
+        // Initialize metadata with device info
+        InitializeMetadata();
+
+        // Refresh operating state (includes battery)
         RefreshOperatingState();
-        
+
+        // Refresh lens metadata (model, aperture, focal length, capabilities)
+        RefreshLensMetadata();
+
         // Check and disable Long Exposure Noise Reduction (LENR) if enabled
         // Do this AFTER capabilities are cached, when camera is fully initialized
         // LENR causes the camera to take dark frames after exposures, which delays image availability
         DisableLongExposureNoiseReduction();
 
-        _diagnostics.RecordEvent("Camera", $"Fujifilm camera {descriptor.DisplayName} connected. ISO count={_supportedSensitivities.Count}, shutter codes={_shutterCodeToDuration.Count}");
+        _diagnostics.RecordEvent("Camera", $"Fujifilm camera {descriptor.DisplayName} connected. ISO count={_supportedSensitivities.Count}, shutter codes={_shutterCodeToDuration.Count}, Battery={_metadata.BatteryLevel}%");
+        RaisePropertyChanged(nameof(IsConnected));
     }
 
     private async Task ApplyConfigurationAsync(CameraConfig config, CancellationToken cancellationToken)
@@ -388,6 +406,53 @@ public sealed class FujiCamera : IAsyncDisposable
         _shutterCodeToDuration = BuildShutterSpeedDictionary(shutterCodes);
     }
 
+    /// <summary>
+    /// Initializes camera metadata from device info.
+    /// </summary>
+    private void InitializeMetadata()
+    {
+        if (_session == null || _session.Handle == IntPtr.Zero)
+        {
+            _metadata = new FujiCameraMetadata();
+            return;
+        }
+
+        // Create new metadata instance
+        _metadata = new FujiCameraMetadata();
+
+        try
+        {
+            // Get device info from SDK
+            var result = FujifilmSdkWrapper.XSDK_GetDeviceInfoEx(
+                _session.Handle,
+                out var deviceInfo,
+                out int apiCount,
+                IntPtr.Zero);
+
+            if (result == FujifilmSdkWrapper.XSDK_COMPLETE)
+            {
+                _metadata.ProductName = deviceInfo.strProduct?.Trim() ?? string.Empty;
+                _metadata.FirmwareVersion = deviceInfo.strFirmware?.Trim() ?? string.Empty;
+
+                _diagnostics.RecordEvent("Camera", $"Device info: Product='{_metadata.ProductName}', Firmware='{_metadata.FirmwareVersion}', API count={apiCount}");
+            }
+            else
+            {
+                _diagnostics.RecordEvent("Camera", $"Failed to get device info (result={result})");
+            }
+
+            // Get initial dynamic range
+            if (FujifilmSdkWrapper.XSDK_GetDynamicRange(_session.Handle, out var dRange) == FujifilmSdkWrapper.XSDK_COMPLETE)
+            {
+                _metadata.DynamicRangeCode = dRange;
+            }
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.RecordEvent("Camera", $"Error initializing metadata: {ex.Message}");
+        }
+    }
+
     private void RefreshBufferCapacity()
     {
         if (_session == null)
@@ -442,7 +507,437 @@ public sealed class FujiCamera : IAsyncDisposable
             _lastApiErrorCode = apiCode;
             _lastSdkErrorCode = errCode;
         }
+
+        // Refresh battery status on every state refresh
+        RefreshBatteryStatus();
     }
+
+    /// <summary>
+    /// Refreshes the battery level from the camera.
+    /// The battery API is model-dependent - newer models (X-T5, X-H2, etc.) use 8 output params,
+    /// older models (X-T3, X-T4, etc.) use 6 output params.
+    /// </summary>
+    private void RefreshBatteryStatus()
+    {
+        if (_session == null || _session.Handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        try
+        {
+            // Determine if this is a "new" model (8 params) or "old" model (6 params)
+            // Based on the camera model name from metadata
+            var modelName = _metadata.ProductName?.ToUpperInvariant() ?? "";
+            bool isNewModel = modelName.Contains("X-T5") ||
+                              modelName.Contains("X-H2") ||
+                              modelName.Contains("X-S20") ||
+                              modelName.Contains("X-M5") ||
+                              modelName.Contains("GFX100II") ||
+                              modelName.Contains("GFX100SII") ||
+                              modelName.Contains("GFX100 II") ||
+                              modelName.Contains("GFX100S II");
+
+            int result;
+            long bodyBatteryInfo, gripBatteryInfo, gripBattery2Info;
+            long bodyBatteryRatio, gripBatteryRatio, gripBattery2Ratio;
+
+            if (isNewModel)
+            {
+                // Use 8-parameter version for newer models
+                result = FujifilmSdkWrapper.XSDK_GetProp_Battery8(
+                    _session.Handle,
+                    FujifilmSdkWrapper.API_CODE_CheckBatteryInfo,
+                    FujifilmSdkWrapper.API_PARAM_CheckBatteryInfo_NewModels,
+                    out bodyBatteryInfo,
+                    out gripBatteryInfo,
+                    out gripBattery2Info,
+                    out bodyBatteryRatio,
+                    out gripBatteryRatio,
+                    out gripBattery2Ratio,
+                    out _,  // plBodyBattery2Info
+                    out _); // plBodyBattery2Ratio2
+
+                _diagnostics.RecordEvent("Camera", $"Battery8 call: result={result}, bodyInfo=0x{bodyBatteryInfo:X}, bodyRatio={bodyBatteryRatio}");
+            }
+            else
+            {
+                // Use 6-parameter version for older models
+                result = FujifilmSdkWrapper.XSDK_GetProp_Battery6(
+                    _session.Handle,
+                    FujifilmSdkWrapper.API_CODE_CheckBatteryInfo,
+                    FujifilmSdkWrapper.API_PARAM_CheckBatteryInfo_OldModels,
+                    out bodyBatteryInfo,
+                    out gripBatteryInfo,
+                    out gripBattery2Info,
+                    out bodyBatteryRatio,
+                    out gripBatteryRatio,
+                    out gripBattery2Ratio);
+
+                _diagnostics.RecordEvent("Camera", $"Battery6 call: result={result}, bodyInfo=0x{bodyBatteryInfo:X}, bodyRatio={bodyBatteryRatio}");
+            }
+
+            if (result == FujifilmSdkWrapper.XSDK_COMPLETE)
+            {
+                // Prefer the ratio (0-100%) if available, otherwise use the status code
+                int batteryLevel;
+                if (bodyBatteryRatio >= 0 && bodyBatteryRatio <= 100)
+                {
+                    batteryLevel = (int)bodyBatteryRatio;
+                }
+                else
+                {
+                    batteryLevel = MapBatteryStatusToPercent((int)bodyBatteryInfo);
+                }
+
+                _metadata.BatteryLevel = Math.Clamp(batteryLevel, 0, 100);
+                _metadata.BatteryStatus = _metadata.BatteryLevel switch
+                {
+                    > 50 => "OK",
+                    > 20 => "Low",
+                    _ => "Critical"
+                };
+
+                _diagnostics.RecordEvent("Camera", $"Battery: {_metadata.BatteryLevel}% ({_metadata.BatteryStatus})");
+            }
+            else
+            {
+                var error = FujifilmSdkWrapper.GetLastError(_session.Handle);
+                _diagnostics.RecordEvent("Camera", $"Battery check failed: result={result}, ApiCode=0x{error.ApiCode:X}, ErrCode=0x{error.ErrorCode:X}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.RecordEvent("Camera", $"Battery status refresh error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Maps SDK_POWERCAPACITY status codes to percentage values.
+    /// </summary>
+    private static int MapBatteryStatusToPercent(int statusCode)
+    {
+        return statusCode switch
+        {
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_EMPTY => 0,
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_END => 5,
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_PREEND => 10,
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_HALF => 50,
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_FULL => 100,
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_HIGH => 80,
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_PREEND5 => 15,
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_20 => 20,
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_40 => 40,
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_60 => 60,
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_80 => 80,
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_100 => 100,
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_DC_CHARGE => 100, // Charging
+            FujifilmSdkWrapper.SDK_POWERCAPACITY_DC => 100,        // DC powered
+            _ => statusCode >= 0 && statusCode <= 100 ? statusCode : 0
+        };
+    }
+
+    /// <summary>
+    /// Refreshes lens metadata including focal length and aperture.
+    /// </summary>
+    private void RefreshLensMetadata()
+    {
+        if (_session == null || _session.Handle == IntPtr.Zero)
+        {
+            _diagnostics.RecordEvent("Camera", "RefreshLensMetadata: No session available");
+            return;
+        }
+
+        try
+        {
+            _diagnostics.RecordEvent("Camera", "RefreshLensMetadata: Calling XSDK_GetLensInfo...");
+
+            // Get basic lens info (model, serial, capabilities)
+            var lensInfoResult = FujifilmSdkWrapper.XSDK_GetLensInfo(_session.Handle, out var lensInfo);
+            _diagnostics.RecordEvent("Camera", $"XSDK_GetLensInfo result: {lensInfoResult} (COMPLETE={FujifilmSdkWrapper.XSDK_COMPLETE})");
+
+            if (lensInfoResult == FujifilmSdkWrapper.XSDK_COMPLETE)
+            {
+                _metadata.LensProductName = lensInfo.strProductName?.Trim() ?? string.Empty;
+                _metadata.LensSerialNumber = lensInfo.strSerialNo?.Trim() ?? string.Empty;
+                _metadata.LensModel = lensInfo.strModel?.Trim() ?? string.Empty;
+                _metadata.HasImageStabilization = lensInfo.lISCapability != 0;
+                _metadata.HasManualFocus = lensInfo.lMFCapability != 0;
+                _metadata.IsZoomLens = lensInfo.lZoomPosCapability != 0;
+
+                _diagnostics.RecordEvent("Camera", $"Lens detected: Model='{_metadata.LensModel}' Product='{_metadata.LensProductName}' SN='{_metadata.LensSerialNumber}' IS={_metadata.HasImageStabilization} MF={_metadata.HasManualFocus} Zoom={_metadata.IsZoomLens}");
+            }
+            else
+            {
+                var error = FujifilmSdkWrapper.GetLastError(_session.Handle);
+                _diagnostics.RecordEvent("Camera", $"XSDK_GetLensInfo FAILED: result={lensInfoResult}, ApiCode=0x{error.ApiCode:X}, ErrCode=0x{error.ErrorCode:X}. No lens detected or lens detection not supported.");
+            }
+
+            // Get current aperture (f-number * 100)
+            var apertureResult = FujifilmSdkWrapper.XSDK_GetProp(
+                _session.Handle,
+                FujifilmSdkWrapper.API_CODE_GetAperture,
+                FujifilmSdkWrapper.API_PARAM_Aperture,
+                out long apertureValue);
+
+            if (apertureResult == FujifilmSdkWrapper.XSDK_COMPLETE)
+            {
+                // SDK returns f-number * 100 (e.g., 280 for f/2.8)
+                _metadata.CurrentAperture = apertureValue / 100.0;
+                _diagnostics.RecordEvent("Camera", $"Aperture: f/{_metadata.CurrentAperture:F1}");
+            }
+            else
+            {
+                _diagnostics.RecordEvent("Camera", $"GetAperture failed: result={apertureResult}");
+            }
+
+            // Get zoom position for zoom lenses
+            if (_metadata.IsZoomLens)
+            {
+                RefreshZoomPosition();
+            }
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.RecordEvent("Camera", $"Lens metadata refresh error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Refreshes zoom position and maps it to focal length for zoom lenses.
+    /// </summary>
+    private void RefreshZoomPosition()
+    {
+        if (_session == null || _session.Handle == IntPtr.Zero || !_metadata.IsZoomLens)
+        {
+            return;
+        }
+
+        try
+        {
+            // Get current zoom position
+            var zoomResult = FujifilmSdkWrapper.XSDK_GetProp(
+                _session.Handle,
+                FujifilmSdkWrapper.API_CODE_GetLensZoomPos,
+                FujifilmSdkWrapper.API_PARAM_LensZoomPos,
+                out long zoomPos);
+
+            if (zoomResult != FujifilmSdkWrapper.XSDK_COMPLETE)
+            {
+                return;
+            }
+
+            _metadata.CurrentZoomPosition = (int)zoomPos;
+
+            // Get zoom position to focal length mapping
+            // Note: XSDK_CapLensZoomPos requires model-specific API codes
+            // For now, we store the zoom position and estimate focal length if possible
+            // A proper implementation would query CapLensZoomPos for the mapping table
+
+            // Try to get capabilities for zoom position mapping
+            var capResult = FujifilmSdkWrapper.XSDK_CapProp(
+                _session.Handle,
+                FujifilmSdkWrapper.API_CODE_CapLensZoomPos,
+                1,  // API param for count
+                out int numPositions,
+                IntPtr.Zero);
+
+            if (capResult == FujifilmSdkWrapper.XSDK_COMPLETE && numPositions > 0)
+            {
+                // Query the actual position-to-focal-length mappings
+                // Each entry contains: position, focal length, 35mm equivalent
+                var bufferSize = numPositions * 3 * sizeof(int);  // 3 ints per position
+                var buffer = Marshal.AllocHGlobal(bufferSize);
+                try
+                {
+                    var dataResult = FujifilmSdkWrapper.XSDK_CapProp(
+                        _session.Handle,
+                        FujifilmSdkWrapper.API_CODE_CapLensZoomPos,
+                        2,  // API param for data
+                        out numPositions,
+                        buffer);
+
+                    if (dataResult == FujifilmSdkWrapper.XSDK_COMPLETE)
+                    {
+                        // Find the focal length for current zoom position
+                        for (int i = 0; i < numPositions; i++)
+                        {
+                            int pos = Marshal.ReadInt32(buffer, i * 3 * sizeof(int));
+                            int focal = Marshal.ReadInt32(buffer, i * 3 * sizeof(int) + sizeof(int));
+                            int focal35 = Marshal.ReadInt32(buffer, i * 3 * sizeof(int) + 2 * sizeof(int));
+
+                            if (pos == _metadata.CurrentZoomPosition)
+                            {
+                                _metadata.CurrentFocalLength = focal;
+                                _metadata.FocalLength35mmEquiv = focal35;
+                                _diagnostics.RecordEvent("Camera", $"Zoom: pos={pos}, focal={focal}mm (35mm equiv: {focal35}mm)");
+                                break;
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(buffer);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.RecordEvent("Camera", $"Zoom position refresh error: {ex.Message}");
+        }
+    }
+
+    #region Bracketing/Drive Mode Control
+
+    /// <summary>
+    /// Gets the current drive mode (bracketing mode).
+    /// </summary>
+    public BracketingMode GetDriveMode()
+    {
+        if (_session == null || _session.Handle == IntPtr.Zero)
+        {
+            return BracketingMode.Off;
+        }
+
+        try
+        {
+            var result = FujifilmSdkWrapper.XSDK_GetProp(
+                _session.Handle,
+                FujifilmSdkWrapper.API_CODE_GetDriveMode,
+                FujifilmSdkWrapper.API_PARAM_DriveMode,
+                out long modeValue);
+
+            if (result == FujifilmSdkWrapper.XSDK_COMPLETE)
+            {
+                var mode = (BracketingMode)(int)modeValue;
+                _diagnostics.RecordEvent("Camera", $"Current drive mode: {mode.GetDisplayName()} (0x{(int)mode:X4})");
+                return mode;
+            }
+            else
+            {
+                var error = FujifilmSdkWrapper.GetLastError(_session.Handle);
+                _diagnostics.RecordEvent("Camera", $"GetDriveMode failed (result={result}, ErrCode=0x{error.ErrorCode:X})");
+            }
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.RecordEvent("Camera", $"GetDriveMode error: {ex.Message}");
+        }
+
+        return BracketingMode.Off;
+    }
+
+    /// <summary>
+    /// Sets the drive mode (bracketing mode).
+    /// </summary>
+    public bool SetDriveMode(BracketingMode mode)
+    {
+        if (_session == null || _session.Handle == IntPtr.Zero)
+        {
+            _diagnostics.RecordEvent("Camera", "SetDriveMode: Camera not connected");
+            return false;
+        }
+
+        try
+        {
+            _diagnostics.RecordEvent("Camera", $"Setting drive mode to: {mode.GetDisplayName()} (0x{(int)mode:X4})");
+
+            var result = FujifilmSdkWrapper.XSDK_SetProp(
+                _session.Handle,
+                FujifilmSdkWrapper.API_CODE_SetDriveMode,
+                FujifilmSdkWrapper.API_PARAM_DriveMode,
+                (int)mode);
+
+            if (result == FujifilmSdkWrapper.XSDK_COMPLETE)
+            {
+                _diagnostics.RecordEvent("Camera", $"Drive mode set successfully to {mode.GetDisplayName()}");
+                return true;
+            }
+            else
+            {
+                var error = FujifilmSdkWrapper.GetLastError(_session.Handle);
+                _diagnostics.RecordEvent("Camera", $"SetDriveMode failed (result={result}, ErrCode=0x{error.ErrorCode:X}). Mode may not be supported by this camera.");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.RecordEvent("Camera", $"SetDriveMode error: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Gets the list of drive modes supported by the connected camera.
+    /// </summary>
+    public IReadOnlyList<BracketingMode> GetSupportedDriveModes()
+    {
+        if (_session == null || _session.Handle == IntPtr.Zero)
+        {
+            return Array.Empty<BracketingMode>();
+        }
+
+        try
+        {
+            // First call: get count
+            var countResult = FujifilmSdkWrapper.XSDK_CapProp(
+                _session.Handle,
+                FujifilmSdkWrapper.API_CODE_CapDriveMode,
+                0,  // API param for count query
+                out int count,
+                IntPtr.Zero);
+
+            if (countResult != FujifilmSdkWrapper.XSDK_COMPLETE || count <= 0)
+            {
+                _diagnostics.RecordEvent("Camera", $"CapDriveMode query failed or returned 0 modes (result={countResult}, count={count})");
+                return Array.Empty<BracketingMode>();
+            }
+
+            // Second call: get data
+            var bufferSize = count * sizeof(int);
+            var buffer = Marshal.AllocHGlobal(bufferSize);
+            try
+            {
+                var dataResult = FujifilmSdkWrapper.XSDK_CapProp(
+                    _session.Handle,
+                    FujifilmSdkWrapper.API_CODE_CapDriveMode,
+                    1,  // API param for data query
+                    out count,
+                    buffer);
+
+                if (dataResult != FujifilmSdkWrapper.XSDK_COMPLETE)
+                {
+                    _diagnostics.RecordEvent("Camera", $"CapDriveMode data query failed (result={dataResult})");
+                    return Array.Empty<BracketingMode>();
+                }
+
+                var modes = new List<BracketingMode>(count);
+                for (int i = 0; i < count; i++)
+                {
+                    var modeValue = Marshal.ReadInt32(buffer, i * sizeof(int));
+                    if (Enum.IsDefined(typeof(BracketingMode), modeValue))
+                    {
+                        modes.Add((BracketingMode)modeValue);
+                    }
+                }
+
+                _diagnostics.RecordEvent("Camera", $"Supported drive modes: {string.Join(", ", modes.Select(m => m.GetDisplayName()))}");
+                return modes;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.RecordEvent("Camera", $"GetSupportedDriveModes error: {ex.Message}");
+            return Array.Empty<BracketingMode>();
+        }
+    }
+
+    #endregion
 
     private IReadOnlyList<int> QuerySensitivityValues()
     {
@@ -1145,6 +1640,7 @@ public sealed class FujiCamera : IAsyncDisposable
             _supportedShutterCodes = Array.Empty<int>();
             _bufferShootCapacity = 0;
             _bufferTotalCapacity = 0;
+            RaisePropertyChanged(nameof(IsConnected));
         }
     }
 

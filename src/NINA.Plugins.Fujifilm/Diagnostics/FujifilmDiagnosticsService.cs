@@ -5,6 +5,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using NINA.Core.Utility;
 
 namespace NINA.Plugins.Fujifilm.Diagnostics;
 
@@ -22,6 +23,9 @@ public sealed class FujifilmDiagnosticsService : IFujifilmDiagnosticsService
     {
         var evt = new FujifilmDiagnosticEvent(DateTimeOffset.UtcNow, category, message);
         _events.Enqueue(evt);
+
+        // Also log to NINA's log file for easier debugging
+        Logger.Info($"[Fuji:{category}] {message}");
     }
 
     public void RecordSdkCall(string apiName, int result, int apiCode, int errorCode)

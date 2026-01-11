@@ -310,6 +310,9 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
 
     public async Task<ushort[]> GetExposure(double exposureTime, int width, int height, CancellationToken ct)
     {
+        var totalStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var stepStopwatch = System.Diagnostics.Stopwatch.StartNew();
+
         Task<RawCaptureResult>? captureTask;
         lock (_sync)
         {
@@ -338,11 +341,24 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
             }
         }
 
-        _diagnostics.RecordEvent("Adapter", $"Raw buffer captured: {raw.RawBuffer.Length} bytes");
+        var usbTransferMs = stepStopwatch.ElapsedMilliseconds;
+        stepStopwatch.Restart();
+
+        Logger.Info($"[TIMING] USB transfer complete: {usbTransferMs}ms, buffer size: {raw.RawBuffer.Length} bytes");
+
         var libRaw = await _libRawAdapter.ProcessRawAsync(raw.RawBuffer, ct).ConfigureAwait(false);
-        _diagnostics.RecordEvent("Adapter", $"LibRaw processing: Success={libRaw.Success}, Width={libRaw.Width}, Height={libRaw.Height}, BayerDataLen={libRaw.BayerData.Length}");
+
+        var libRawMs = stepStopwatch.ElapsedMilliseconds;
+        stepStopwatch.Restart();
+
+        Logger.Info($"[TIMING] LibRaw processing: {libRawMs}ms, Success={libRaw.Success}, {libRaw.Width}x{libRaw.Height}, BayerLen={libRaw.BayerData.Length}, RgbLen={libRaw.DebayeredRgb?.Length ?? 0}");
+
         var package = _imageBuilder.Build(raw, libRaw, _capabilities, _config);
-        _diagnostics.RecordEvent("Adapter", $"Image package: Width={package.Width}, Height={package.Height}, PixelsLen={package.Pixels.Length}");
+
+        var buildMs = stepStopwatch.ElapsedMilliseconds;
+        stepStopwatch.Restart();
+
+        Logger.Info($"[TIMING] Image build: {buildMs}ms, {package.Width}x{package.Height}");
         
         // Diagnostic logging for black image investigation
         if (package.Pixels.Length > 0)
@@ -372,7 +388,7 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
         
         // For X-Trans cameras: We use LibRaw to debayer non-destructively (raw data is preserved).
         // The debayered RGB data is used for NINA's live preview to show color images.
-        // 
+        //
         // Since NINA's GetExposure() expects single-channel data (width*height), we have options:
         // 1. Return debayered RGB converted to luminance (grayscale preview, shows image content)
         // 2. Return raw bayer data (NINA can't debayer X-Trans, so this shows incorrectly)
@@ -386,33 +402,30 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
         var previewBitDepth = package.GetPreviewBitDepth();
         if (debayeredRgb != null && package.ColorFilterPattern.StartsWith("XTRANS", StringComparison.OrdinalIgnoreCase))
         {
-            _diagnostics.RecordEvent("Adapter", $"X-Trans detected with debayered RGB available from LibRaw (non-destructive).");
-            
             // Try returning RGB data for color preview
-            // Note: NINA's GetExposure() signature expects width*height pixels.
-            // Returning interleaved RGB (width*height*3) causes the image to appear zoomed in and corrupted
-            // because NINA interprets it as a single channel image.
-            //
-            // Return Synthetic RGGB Bayer data for color preview.
-            // NINA expects a single-channel Bayer image (Width * Height).
-            // We take our high-quality debayered RGB data and "re-mosaic" it into an RGGB pattern.
-            // NINA will then debayer this synthetic image, producing a color preview.
-            // This preserves the correct image dimensions and provides color.
             try
             {
                 var syntheticBayer = ConvertRgbToSyntheticBayer(debayeredRgb, package.Width, package.Height, previewMultipliers);
-                _diagnostics.RecordEvent("Adapter", $"Returning Synthetic RGGB data for X-Trans preview ({syntheticBayer.Length} pixels, previewBitDepth={previewBitDepth}b)");
+
+                var convertMs = stepStopwatch.ElapsedMilliseconds;
+                var totalMs = totalStopwatch.ElapsedMilliseconds;
+
+                Logger.Info($"[TIMING] RGB->Bayer conversion: {convertMs}ms");
+                Logger.Info($"[TIMING] TOTAL GetExposure: {totalMs}ms (USB:{usbTransferMs} + LibRaw:{libRawMs} + Build:{buildMs} + Convert:{convertMs})");
+
                 return syntheticBayer;
             }
             catch (Exception ex)
             {
-                _diagnostics.RecordEvent("Adapter", $"Synthetic Bayer conversion failed, falling back to raw: {ex.Message}");
+                Logger.Error($"[TIMING] Synthetic Bayer conversion failed: {ex.Message}");
                 return package.Pixels;
             }
         }
-        
+
         // For Bayer cameras or when debayered RGB is not available, return raw bayer data
-        // NINA will debayer this using the BAYERPAT metadata we provide
+        var totalMsBayer = totalStopwatch.ElapsedMilliseconds;
+        Logger.Info($"[TIMING] TOTAL GetExposure (Bayer path): {totalMsBayer}ms");
+
         return package.Pixels;
     }
     
@@ -574,6 +587,21 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
     public bool SetFanPercentage(int fanPercentage) => false;
 
     public int GetFanPercentage() => 0;
+
+    /// <summary>
+    /// Gets the current battery level (0-100) from the camera.
+    /// Returns -1 if battery level is not available.
+    /// </summary>
+    public int GetBatteryLevel()
+    {
+        if (!_connected)
+            return -1;
+
+        // Refresh capabilities to get latest battery info
+        _capabilities = _camera.GetCapabilitiesSnapshot();
+        var level = _capabilities.Metadata.BatteryLevel;
+        return level > 0 ? level : -1;
+    }
 
     private void EnsureConnected()
     {

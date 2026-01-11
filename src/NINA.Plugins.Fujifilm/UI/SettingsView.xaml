@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:NINA.Plugins.Fujifilm.Settings"
              mc:Ignorable="d"
              d:DesignWidth="500"
              d:DesignHeight="600">
@@ -41,9 +42,40 @@
     
     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
         <StackPanel>
+            <!-- Camera Status Section (visible when connected) -->
+            <Border BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+                    BorderThickness="1"
+                    Background="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+                    Padding="12"
+                    CornerRadius="4"
+                    Margin="0,0,0,20">
+                <StackPanel>
+                    <TextBlock Text="Camera Status" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Battery:" Grid.Row="0" Grid.Column="0" Margin="0,0,12,4" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding BatteryStatusText}" Grid.Row="0" Grid.Column="1" Margin="0,0,0,4" />
+                        <TextBlock Text="Lens:" Grid.Row="1" Grid.Column="0" Margin="0,0,12,0" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding LensStatusText}" Grid.Row="1" Grid.Column="1" />
+                    </Grid>
+                    <TextBlock Text="Select a camera and click 'Load Capabilities' to see status"
+                               Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                               FontStyle="Italic"
+                               FontSize="11"
+                               Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
+
             <!-- Main Settings Section -->
             <TextBlock Text="Camera Settings" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,20" />
-            
+
             <!-- Exposure Settings -->
             <TextBlock Text="Exposure" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
             <StackPanel Margin="0,0,0,24">
@@ -76,19 +108,55 @@
             <TextBlock Text="Output" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
             <StackPanel Margin="0,0,0,24">
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                    <CheckBox IsChecked="{Binding Settings.SaveNativeRafSidecar, Mode=TwoWay}" 
+                    <CheckBox IsChecked="{Binding Settings.SaveNativeRafSidecar, Mode=TwoWay}"
                               VerticalAlignment="Center"
                               Margin="0,0,8,0" />
-                    <TextBlock Text="Save native RAF sidecar" 
+                    <TextBlock Text="Save native RAF sidecar"
                                VerticalAlignment="Center" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal">
-                    <CheckBox IsChecked="{Binding Settings.EnableExtendedFitsMetadata, Mode=TwoWay}" 
+                    <CheckBox IsChecked="{Binding Settings.EnableExtendedFitsMetadata, Mode=TwoWay}"
                               VerticalAlignment="Center"
                               Margin="0,0,8,0" />
-                    <TextBlock Text="Annotate FITS headers with Fuji metadata" 
+                    <TextBlock Text="Annotate FITS headers with Fuji metadata"
                                VerticalAlignment="Center" />
                 </StackPanel>
+            </StackPanel>
+
+            <!-- Preview Quality Settings -->
+            <TextBlock Text="Preview Quality" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
+            <StackPanel Margin="0,0,0,24">
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Demosaic Quality:"
+                               VerticalAlignment="Center"
+                               Margin="0,0,12,0" />
+                    <ComboBox Grid.Column="1"
+                              Width="180"
+                              HorizontalAlignment="Left"
+                              SelectedValue="{Binding Settings.PreviewDemosaicQuality, Mode=TwoWay}"
+                              SelectedValuePath="Tag">
+                        <ComboBoxItem Content="Fast (~1s)" Tag="{x:Static local:DemosaicQuality.Fast}" />
+                        <ComboBoxItem Content="Balanced (~4s)" Tag="{x:Static local:DemosaicQuality.Balanced}" />
+                        <ComboBoxItem Content="High Quality (~15s)" Tag="{x:Static local:DemosaicQuality.HighQuality}" />
+                    </ComboBox>
+                </Grid>
+                <TextBlock TextWrapping="Wrap"
+                           Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                           FontSize="11"
+                           Margin="0,0,0,0">
+                    <Run FontWeight="SemiBold">Fast:</Run> Linear interpolation. Fastest download, slight softness. Ideal for astrophotography.
+                    <LineBreak />
+                    <Run FontWeight="SemiBold">Balanced:</Run> VNG algorithm. Good edge handling with moderate speed.
+                    <LineBreak />
+                    <Run FontWeight="SemiBold">High Quality:</Run> AHD algorithm. Best edges but slowest. Use for critical framing.
+                    <LineBreak />
+                    <LineBreak />
+                    <Run FontStyle="Italic">This only affects the preview in NINA. Your saved RAW files are unaffected.</Run>
+                </TextBlock>
             </StackPanel>
 
             <!-- Focus Settings -->
@@ -96,24 +164,24 @@
             <StackPanel Margin="0,0,0,24">
                 <!-- Checkbox with clear label alignment -->
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                    <CheckBox IsChecked="{Binding Settings.ForceManualFocusMode, Mode=TwoWay}" 
+                    <CheckBox IsChecked="{Binding Settings.ForceManualFocusMode, Mode=TwoWay}"
                               VerticalAlignment="Center"
                               Margin="0,0,8,0" />
-                    <TextBlock Text="Force Manual Focus Mode" 
+                    <TextBlock Text="Force Manual Focus Mode"
                                VerticalAlignment="Center" />
                 </StackPanel>
-                
+
                 <!-- Input field with label -->
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="Focus Backlash Steps:" 
-                               VerticalAlignment="Center" 
+                    <TextBlock Text="Focus Backlash Steps:"
+                               VerticalAlignment="Center"
                                Margin="0,0,12,0" />
-                    <TextBox Grid.Column="1" 
-                             Width="100" 
+                    <TextBox Grid.Column="1"
+                             Width="100"
                              HorizontalAlignment="Left"
                              Text="{Binding Settings.FocusBacklashSteps, Mode=TwoWay}" />
                 </Grid>

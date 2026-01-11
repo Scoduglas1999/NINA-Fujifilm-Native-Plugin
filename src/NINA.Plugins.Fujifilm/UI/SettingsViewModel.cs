@@ -48,6 +48,50 @@ public partial class SettingsViewModel : ObservableObject
 
     public FujiSettings Settings { get; }
 
+    /// <summary>
+    /// Battery status text for the status panel.
+    /// </summary>
+    public string BatteryStatusText
+    {
+        get
+        {
+            if (CameraCapabilities == null)
+                return "Not connected";
+
+            var level = CameraCapabilities.Metadata.BatteryLevel;
+            var status = CameraCapabilities.Metadata.BatteryStatus;
+
+            if (level > 0)
+                return $"{level}% ({status})";
+
+            return string.IsNullOrEmpty(status) ? "Unknown" : status;
+        }
+    }
+
+    /// <summary>
+    /// Lens status text for the status panel.
+    /// </summary>
+    public string LensStatusText
+    {
+        get
+        {
+            if (CameraCapabilities == null)
+                return "Not connected";
+
+            var lens = CameraCapabilities.Metadata.LensProductName;
+            if (string.IsNullOrWhiteSpace(lens))
+                return "No lens detected";
+
+            var ois = CameraCapabilities.Metadata.HasImageStabilization ? " [OIS]" : "";
+            return $"{lens}{ois}";
+        }
+    }
+
+    /// <summary>
+    /// Whether status information is available (camera connected and capabilities loaded).
+    /// </summary>
+    public bool IsStatusAvailable => CameraCapabilities != null;
+
     public string CapabilitiesSummary
     {
         get
@@ -64,7 +108,7 @@ public partial class SettingsViewModel : ObservableObject
 
             if (CameraCapabilities == null)
             {
-                return "Select a camera to view capabilities.";
+                return "Select a camera and click 'Load Capabilities' to view camera info.";
             }
 
             var caps = CameraCapabilities;
@@ -104,11 +148,48 @@ public partial class SettingsViewModel : ObservableObject
             var bodySummary = string.IsNullOrWhiteSpace(metadata.ProductName)
                 ? "Body: (unknown)"
                 : $"Body: {metadata.ProductName}  FW: {metadata.FirmwareVersion}";
-            var lensSummary = string.IsNullOrWhiteSpace(metadata.LensProductName)
-                ? "Lens: (none detected)"
-                : $"Lens: {metadata.LensProductName}  SN: {metadata.LensSerialNumber}";
 
-            return $"Resolution: {resolutionSummary}\nISO Range: {isoSummary}\nExposure (Timed): {timedExposureSummary}\nExposure (Bulb): {bulbExposureSummary}\nSupports Bulb: {bulbSummary}\nBuffer Capacity: {bufferSummary}\n{stateSummary}\nLast Error: {errorSummary}\n{bodySummary}\n{lensSummary}";
+            // Enhanced lens info
+            string lensSummary;
+            if (string.IsNullOrWhiteSpace(metadata.LensProductName))
+            {
+                lensSummary = "Lens: (none detected)";
+            }
+            else
+            {
+                lensSummary = $"Lens: {metadata.LensProductName}";
+                if (!string.IsNullOrWhiteSpace(metadata.LensSerialNumber))
+                {
+                    lensSummary += $"  SN: {metadata.LensSerialNumber}";
+                }
+                if (metadata.HasImageStabilization)
+                {
+                    lensSummary += " [OIS]";
+                }
+            }
+
+            // Aperture info
+            var apertureSummary = metadata.CurrentAperture > 0
+                ? $"Aperture: f/{metadata.CurrentAperture:F1}"
+                : "Aperture: n/a";
+
+            // Battery info
+            var batterySummary = metadata.BatteryLevel > 0
+                ? $"Battery: {metadata.BatteryLevel}% ({metadata.BatteryStatus})"
+                : "Battery: n/a";
+
+            return $"Resolution: {resolutionSummary}\n" +
+                   $"ISO Range: {isoSummary}\n" +
+                   $"Exposure (Timed): {timedExposureSummary}\n" +
+                   $"Exposure (Bulb): {bulbExposureSummary}\n" +
+                   $"Supports Bulb: {bulbSummary}\n" +
+                   $"Buffer Capacity: {bufferSummary}\n" +
+                   $"{stateSummary}\n" +
+                   $"Last Error: {errorSummary}\n" +
+                   $"{bodySummary}\n" +
+                   $"{lensSummary}\n" +
+                   $"{apertureSummary}\n" +
+                   $"{batterySummary}";
         }
     }
 
@@ -153,6 +234,9 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnCameraCapabilitiesChanged(FujiCameraCapabilities? value)
     {
         OnPropertyChanged(nameof(CapabilitiesSummary));
+        OnPropertyChanged(nameof(BatteryStatusText));
+        OnPropertyChanged(nameof(LensStatusText));
+        OnPropertyChanged(nameof(IsStatusAvailable));
     }
 
     partial void OnIsLoadingCapabilitiesChanged(bool value)

@@ -35,9 +35,14 @@ internal sealed class CameraImageBuilder
     {
         var width = DetermineDimension(processed.Width, raw.Width, config?.CameraXSize ?? 0);
         var height = DetermineDimension(processed.Height, raw.Height, config?.CameraYSize ?? 0);
+
+        // For X-Trans, we use DebayeredRgb and don't need BayerData, so skip the allocation
+        var hasDebayeredRgb = processed.GetDebayeredRgb() is { Length: > 0 };
         var pixels = processed.Success && processed.BayerData.Length == width * height
             ? processed.BayerData
-            : new ushort[Math.Max(1, width * height)];
+            : hasDebayeredRgb
+                ? Array.Empty<ushort>()  // X-Trans: don't allocate - we use DebayeredRgb
+                : new ushort[Math.Max(1, width * height)];
 
         var (pattern, patternWidth, patternHeight) = ResolvePattern(processed, capabilities, config);
         var rafPath = ResolveRafSidecar(raw, processed);

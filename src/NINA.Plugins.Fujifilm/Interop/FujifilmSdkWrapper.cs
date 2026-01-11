@@ -72,6 +72,87 @@ internal static class FujifilmSdkWrapper
     public const int XSDK_MEDIAREC_SD = 1;
     public const int XSDK_MEDIAREC_RAW = 2;
 
+    // ========== Battery Info API (from XAPIOpt.h) ==========
+    public const int API_CODE_CheckBatteryInfo = 0x4055;
+
+    // Battery API parameter values - model specific:
+    // Newer models (X-T5, X-H2, X-H2S, X-S20, X-M5, GFX100II, GFX100SII): param = 8
+    // Older models (X-T3, X-T4, X-S10, X-Pro3, GFX50S, GFX50R, GFX100S, GFX50SII): param = 6
+    // The param value represents the number of output values the API supports
+    // For body battery info/ratio, we try param 1 first, then model-specific values
+    public const int API_PARAM_CheckBatteryInfo_Body = 1;        // Body battery info (status code)
+    public const int API_PARAM_CheckBatteryInfo_BodyRatio = 4;   // Body battery ratio (0-100%)
+    public const int API_PARAM_CheckBatteryInfo_NewModels = 8;   // For X-T5, X-H2, etc.
+    public const int API_PARAM_CheckBatteryInfo_OldModels = 6;   // For X-T3, X-T4, etc.
+
+    // Power Capacity Status Codes (from XAPIOpt.h lines 1234-1247)
+    public const int SDK_POWERCAPACITY_EMPTY = 0x0000;      // Empty
+    public const int SDK_POWERCAPACITY_END = 0x0001;        // End (about to die)
+    public const int SDK_POWERCAPACITY_PREEND = 0x0002;     // Pre-end (very low)
+    public const int SDK_POWERCAPACITY_HALF = 0x0003;       // Half
+    public const int SDK_POWERCAPACITY_FULL = 0x0004;       // Full
+    public const int SDK_POWERCAPACITY_HIGH = 0x0005;       // High
+    public const int SDK_POWERCAPACITY_PREEND5 = 0x0007;    // Less than 20%
+    public const int SDK_POWERCAPACITY_20 = 0x0008;         // 20%
+    public const int SDK_POWERCAPACITY_40 = 0x0009;         // 40%
+    public const int SDK_POWERCAPACITY_60 = 0x000A;         // 60%
+    public const int SDK_POWERCAPACITY_80 = 0x000B;         // 80%
+    public const int SDK_POWERCAPACITY_100 = 0x000C;        // 100%
+    public const int SDK_POWERCAPACITY_DC_CHARGE = 0x000D;  // Charging via DC
+    public const int SDK_POWERCAPACITY_DC = 0x00FF;         // Powered by DC adapter
+
+    // ========== Drive Mode API Codes (from XAPI.h lines 238-240) ==========
+    public const int API_CODE_SetDriveMode = 0x1377;
+    public const int API_CODE_GetDriveMode = 0x1378;
+    public const int API_CODE_CapDriveMode = 0x1379;
+    public const int API_PARAM_DriveMode = 1;
+
+    // ========== Drive Mode Constants (from XAPI.h lines 2107-2124) ==========
+    public const int XSDK_DRIVE_MODE_S = 0x0001;           // Single shot
+    public const int XSDK_DRIVE_MODE_CL = 0x0002;          // Continuous Low
+    public const int XSDK_DRIVE_MODE_CH = 0x0003;          // Continuous High
+    public const int XSDK_DRIVE_MODE_BOOST = 0x0004;       // Continuous Boost
+    public const int XSDK_DRIVE_MODE_BKT_AE = 0x000A;      // Auto Exposure Bracketing
+    public const int XSDK_DRIVE_MODE_BKT_ISO = 0x000B;     // ISO Bracketing
+    public const int XSDK_DRIVE_MODE_BKT_DYNAMICRANGE = 0x000E;  // Dynamic Range Bracketing
+    public const int XSDK_DRIVE_MODE_BKT_FOCUS = 0x000F;   // Focus Bracketing
+
+    // ========== Lens Position/Zoom API Codes (from XAPI.h) ==========
+    public const int API_CODE_CapLensZoomPos = 0x1321;
+    public const int API_CODE_SetLensZoomPos = 0x1322;
+    public const int API_CODE_GetLensZoomPos = 0x1323;
+    public const int API_PARAM_LensZoomPos = 1;
+
+    // ========== Aperture API Codes (from XAPI.h) ==========
+    public const int API_CODE_CapAperture = 0x1324;
+    public const int API_CODE_SetAperture = 0x1325;
+    public const int API_CODE_GetAperture = 0x1326;
+    public const int API_PARAM_Aperture = 1;
+
+    // ========== Live View API Codes (from XAPI.h) ==========
+    public const int API_CODE_StartLiveView = 0x3301;
+    public const int API_CODE_StopLiveView = 0x3302;
+    public const int API_CODE_SetLiveViewImageQuality = 0x3323;
+    public const int API_CODE_SetLiveViewImageSize = 0x3325;
+    public const int API_CODE_SetThroughImageZoom = 0x3327;
+    public const int API_PARAM_LiveView = 1;
+
+    // ========== Live View Quality Constants ==========
+    public const int XSDK_LIVEVIEW_QUALITY_FINE = 0x0001;
+    public const int XSDK_LIVEVIEW_QUALITY_NORMAL = 0x0002;
+    public const int XSDK_LIVEVIEW_QUALITY_BASIC = 0x0003;
+
+    // ========== Live View Size Constants ==========
+    public const int XSDK_LIVEVIEW_SIZE_L = 0x0001;   // 1280px
+    public const int XSDK_LIVEVIEW_SIZE_M = 0x0002;   // 800px
+    public const int XSDK_LIVEVIEW_SIZE_S = 0x0003;   // 640px
+
+    // ========== Image Format Constants ==========
+    public const int XSDK_IMAGEFORMAT_RAW = 1;
+    public const int XSDK_IMAGEFORMAT_JPEG = 2;
+    public const int XSDK_IMAGEFORMAT_TIFF = 3;
+    public const int XSDK_IMAGEFORMAT_LIVE = 4;  // Live View JPEG
+
     [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_Init")]
     public static extern int XSDK_Init(IntPtr hLib);
 
@@ -240,6 +321,36 @@ internal static class FujifilmSdkWrapper
 
     [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_GetProp")]
     public static extern int XSDK_GetProp(IntPtr hCamera, int lAPICode, int lAPIParam, out long plValue);
+
+    // Battery Info overload for newer models (X-T5, X-H2, X-H2S, X-S20, X-M5, GFX100II, GFX100SII)
+    // These models require 8 output parameters
+    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_GetProp")]
+    public static extern int XSDK_GetProp_Battery8(
+        IntPtr hCamera,
+        int lAPICode,
+        int lAPIParam,
+        out long plBodyBatteryInfo,
+        out long plGripBatteryInfo,
+        out long plGripBattery2Info,
+        out long plBodyBatteryRatio,
+        out long plGripBatteryRatio,
+        out long plGripBattery2Ratio,
+        out long plBodyBattery2Info,
+        out long plBodyBattery2Ratio2);
+
+    // Battery Info overload for older models (X-T3, X-T4, X-S10, X-Pro3, GFX50S, GFX50R, GFX100S, GFX50SII)
+    // These models require 6 output parameters
+    [DllImport(SdkDllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "XSDK_GetProp")]
+    public static extern int XSDK_GetProp_Battery6(
+        IntPtr hCamera,
+        int lAPICode,
+        int lAPIParam,
+        out long plBodyBatteryInfo,
+        out long plGripBatteryInfo,
+        out long plGripBattery2Info,
+        out long plBodyBatteryRatio,
+        out long plGripBatteryRatio,
+        out long plGripBattery2Ratio);
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
     public struct XSDK_DeviceInformation
