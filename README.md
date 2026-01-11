@@ -137,11 +137,9 @@ Access plugin settings through **Options > Equipment > Camera > Fujifilm**.
 ## Limitations
 
 - **No Live View**: Live view video streaming is not currently implemented
+> Live view implementation currently under development, check back later. 
 - **No Binning**: Only full-frame capture is supported
-- **No Cooling Control**: Fujifilm cameras do not have cooling systems
 - **RAW Only**: Plugin captures RAW images; JPEG capture is not supported
-- **Windows Only**: Requires Windows x64; macOS and Linux are not supported
-- **Electronic Lenses Only**: Focus control requires lenses with electronic focus motors
 
 ---
 
