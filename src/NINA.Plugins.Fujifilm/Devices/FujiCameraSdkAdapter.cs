@@ -1,5 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using NINA.Core.Enum;
@@ -9,6 +13,7 @@ using NINA.Equipment.Interfaces.ViewModel;
 using NINA.Image.Interfaces;
 using NINA.Plugin.Interfaces;
 using NINA.Plugins.Fujifilm.Configuration;
+using NINA.Plugins.Fujifilm.Devices.LiveView;
 using NINA.Plugins.Fujifilm.Diagnostics;
 using NINA.Plugins.Fujifilm.Imaging;
 using NINA.Plugins.Fujifilm.Interop;
@@ -55,6 +60,13 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
 
     private readonly IProfileService _profileService;
 
+    // Live view support
+    private readonly ILiveViewService _liveViewService;
+    private readonly BlockingCollection<LiveViewFrame> _liveViewFrameQueue = new(boundedCapacity: 10);
+    private bool _liveViewActive;
+    private int _liveViewWidth;
+    private int _liveViewHeight;
+
     public FujiCameraSdkAdapter(
         FujiCamera camera,
         FujifilmCameraDescriptor descriptor,
@@ -62,6 +74,7 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
         ILibRawAdapter libRawAdapter,
         IFujiSettingsProvider settingsProvider,
         IProfileService profileService,
+        ILiveViewService liveViewService,
         IDisposable cameraLifetime,
         IDisposable libRawLifetime)
     {
@@ -71,9 +84,24 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
         _libRawAdapter = libRawAdapter;
         _settingsProvider = settingsProvider;
         _profileService = profileService;
+        _liveViewService = liveViewService;
         _imageBuilder = new CameraImageBuilder(settingsProvider, diagnostics, profileService);
         _cameraLifetime = cameraLifetime;
         _libRawLifetime = libRawLifetime;
+
+        // Subscribe to live view frames
+        _liveViewService.FrameReceived += OnLiveViewFrameReceived;
+    }
+
+    private void OnLiveViewFrameReceived(object? sender, LiveViewFrame frame)
+    {
+        // Add frame to queue, dropping oldest if full
+        if (!_liveViewFrameQueue.TryAdd(frame))
+        {
+            // Queue is full, remove oldest and try again
+            _liveViewFrameQueue.TryTake(out _);
+            _liveViewFrameQueue.TryAdd(frame);
+        }
     }
 
     public bool Connected => _connected;
@@ -113,6 +141,12 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
             return;
         }
 
+        // Stop live view if active
+        if (_liveViewActive)
+        {
+            StopVideoCapture();
+        }
+
         CancelCapture();
         _camera.DisconnectAsync().GetAwaiter().GetResult();
         _connected = false;
@@ -135,6 +169,11 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
 
     public (int, int) GetDimensions()
     {
+        // When live view is active, return the live view dimensions
+        if (_liveViewActive && _liveViewWidth > 0 && _liveViewHeight > 0)
+        {
+            return (_liveViewWidth, _liveViewHeight);
+        }
         var width = _roiWidth > 0 ? _roiWidth : (_config?.CameraXSize ?? 0);
         var height = _roiHeight > 0 ? _roiHeight : (_config?.CameraYSize ?? 0);
         return (width, height);
@@ -270,7 +309,15 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
 
     public int GetBitDepth() => 16;
 
-    public (int, int, int, int, int) GetROI() => (_roiX, _roiY, _roiWidth, _roiHeight, _roiBin);
+    public (int, int, int, int, int) GetROI()
+    {
+        // When live view is active, return the live view dimensions
+        if (_liveViewActive && _liveViewWidth > 0 && _liveViewHeight > 0)
+        {
+            return (0, 0, _liveViewWidth, _liveViewHeight, 1);
+        }
+        return (_roiX, _roiY, _roiWidth, _roiHeight, _roiBin);
+    }
 
     public bool HasTemperatureReadout() => false;
 
@@ -540,34 +587,189 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
 
     /// <summary>
     /// Starts live view video capture.
-    /// Note: The Fujifilm SDK supports live view via model-dependent APIs (section 4.2.16),
-    /// but this feature is not yet implemented. Live view requires:
-    /// - Checking API availability (StartLiveView, StopLiveView, GetLiveViewStatus)
-    /// - Model-specific API codes and constants
-    /// - Continuous frame grabbing and JPEG decoding
+    /// Uses the LiveViewService to stream JPEG frames from the camera.
     /// </summary>
     public void StartVideoCapture(double exposureTime, int width, int height)
     {
-        _diagnostics.RecordEvent("Adapter", "Live view requested but not yet implemented. SDK supports it via model-dependent APIs.");
-        throw new NotSupportedException("Live view is not yet implemented for Fujifilm cameras. The SDK supports it, but implementation is pending.");
+        EnsureConnected();
+
+        if (_liveViewActive)
+        {
+            _diagnostics.RecordEvent("Adapter", "Live view already active, ignoring StartVideoCapture");
+            return;
+        }
+
+        var handle = _camera.SessionHandle;
+        if (handle == IntPtr.Zero)
+        {
+            throw new InvalidOperationException("Camera session handle is not available");
+        }
+
+        // Set initial live view dimensions based on LiveViewSize.Large (~1280px width)
+        // Actual dimensions will be updated when first frame is decoded
+        // Aspect ratio is approximately 3:2 for Fuji sensors
+        _liveViewWidth = 1280;
+        _liveViewHeight = 853;
+
+        // Clear any old frames from the queue
+        while (_liveViewFrameQueue.TryTake(out _)) { }
+
+        // Start live view with best quality and size for good preview
+        // LiveViewSize.Large = 1280px width for better resolution
+        // LiveViewQuality.Fine for better JPEG quality (less artifacts)
+        _liveViewService.StartAsync(handle, LiveViewQuality.Fine, LiveViewSize.Large, CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                {
+                    _diagnostics.RecordEvent("Adapter", $"Failed to start live view: {t.Exception?.GetBaseException().Message}");
+                    _liveViewActive = false;
+                }
+            });
+
+        _liveViewActive = true;
+        _diagnostics.RecordEvent("Adapter", $"Live view started: {_liveViewWidth}x{_liveViewHeight} (Large/Fine quality)");
     }
 
     /// <summary>
     /// Stops live view video capture.
-    /// Note: See StartVideoCapture() for implementation status.
     /// </summary>
     public void StopVideoCapture()
     {
-        throw new NotSupportedException("Live view is not yet implemented for Fujifilm cameras.");
+        if (!_liveViewActive)
+        {
+            return;
+        }
+
+        var handle = _camera.SessionHandle;
+        if (handle != IntPtr.Zero)
+        {
+            _liveViewService.StopAsync(handle).GetAwaiter().GetResult();
+        }
+
+        // Clear the frame queue
+        while (_liveViewFrameQueue.TryTake(out _)) { }
+
+        _liveViewActive = false;
+        // Reset live view dimensions so GetDimensions/GetROI returns sensor size for normal exposures
+        _liveViewWidth = 0;
+        _liveViewHeight = 0;
+        _diagnostics.RecordEvent("Adapter", "Live view stopped");
     }
 
     /// <summary>
-    /// Gets a live view frame.
-    /// Note: See StartVideoCapture() for implementation status.
+    /// Gets a live view frame as ushort[] image data.
+    /// Decodes JPEG frames from the LiveViewService and converts to grayscale for NINA preview.
     /// </summary>
-    public Task<ushort[]> GetVideoCapture(double exposureTime, int width, int height, CancellationToken ct)
+    public async Task<ushort[]> GetVideoCapture(double exposureTime, int width, int height, CancellationToken ct)
     {
-        throw new NotSupportedException("Live view is not yet implemented for Fujifilm cameras.");
+        if (!_liveViewActive)
+        {
+            throw new InvalidOperationException("Live view is not active");
+        }
+
+        // Wait for a frame with timeout
+        LiveViewFrame? frame = null;
+        var timeout = Task.Delay(2000, ct);
+
+        while (!ct.IsCancellationRequested)
+        {
+            if (_liveViewFrameQueue.TryTake(out frame, 50))
+            {
+                break;
+            }
+
+            if (timeout.IsCompleted)
+            {
+                throw new TimeoutException("Timeout waiting for live view frame");
+            }
+
+            await Task.Delay(10, ct).ConfigureAwait(false);
+        }
+
+        if (frame == null)
+        {
+            throw new OperationCanceledException("Live view frame retrieval was cancelled");
+        }
+
+        // Convert JPEG to ushort[] image data
+        return ConvertJpegToImageData(frame.JpegData, width, height);
+    }
+
+    /// <summary>
+    /// Converts JPEG data to ushort[] image data for NINA.
+    /// Creates a synthetic Bayer pattern from the JPEG for color preview.
+    /// Uses the native JPEG dimensions for best performance.
+    /// </summary>
+    private ushort[] ConvertJpegToImageData(byte[] jpegData, int targetWidth, int targetHeight)
+    {
+        using var ms = new MemoryStream(jpegData);
+        using var bitmap = new Bitmap(ms);
+
+        // Use native JPEG dimensions - no scaling needed
+        int width = bitmap.Width;
+        int height = bitmap.Height;
+
+        // Update ROI to match live view dimensions
+        _liveViewWidth = width;
+        _liveViewHeight = height;
+
+        // Create output array for synthetic Bayer pattern
+        var result = new ushort[width * height];
+
+        // Lock bitmap for fast pixel access
+        var rect = new Rectangle(0, 0, width, height);
+        var bitmapData = bitmap.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+
+        try
+        {
+            int stride = bitmapData.Stride;
+
+            // Copy bitmap data to managed array
+            byte[] pixels = new byte[stride * height];
+            System.Runtime.InteropServices.Marshal.Copy(bitmapData.Scan0, pixels, 0, pixels.Length);
+
+            // Create synthetic RGGB Bayer pattern - use * 257 to properly scale 8-bit to 16-bit
+            // (255 * 257 = 65535, which is the full 16-bit range)
+            for (int y = 0; y < height; y++)
+            {
+                int rowOffset = y * stride;
+                bool isEvenRow = (y % 2 == 0);
+
+                for (int x = 0; x < width; x++)
+                {
+                    int pixelOffset = rowOffset + x * 3;
+
+                    // BGR format in bitmap
+                    byte b = pixels[pixelOffset];
+                    byte g = pixels[pixelOffset + 1];
+                    byte r = pixels[pixelOffset + 2];
+
+                    bool isEvenCol = (x % 2 == 0);
+
+                    // RGGB Bayer Pattern - scale 8-bit to 16-bit properly
+                    ushort value;
+                    if (isEvenRow)
+                    {
+                        // Row 0: R G R G...
+                        value = isEvenCol ? (ushort)(r * 257) : (ushort)(g * 257);
+                    }
+                    else
+                    {
+                        // Row 1: G B G B...
+                        value = isEvenCol ? (ushort)(g * 257) : (ushort)(b * 257);
+                    }
+
+                    result[y * width + x] = value;
+                }
+            }
+        }
+        finally
+        {
+            bitmap.UnlockBits(bitmapData);
+        }
+
+        return result;
     }
 
     public List<string> GetReadoutModes() => new() { "Default" };
@@ -647,6 +849,10 @@ internal sealed class FujiCameraSdkAdapter : IGenericCameraSDK, IDisposable
         }
 
         _disposed = true;
+
+        // Unsubscribe from live view events
+        _liveViewService.FrameReceived -= OnLiveViewFrameReceived;
+        _liveViewFrameQueue.Dispose();
 
         if (_connected)
         {

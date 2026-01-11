@@ -191,7 +191,8 @@ internal sealed class FujiGenericCamera : ICamera
     public int SubSampleY { get => _innerCamera.SubSampleY; set => _innerCamera.SubSampleY = value; }
     public int SubSampleWidth { get => _innerCamera.SubSampleWidth; set => _innerCamera.SubSampleWidth = value; }
     public int SubSampleHeight { get => _innerCamera.SubSampleHeight; set => _innerCamera.SubSampleHeight = value; }
-    public bool CanShowLiveView => _innerCamera.CanShowLiveView;
+    // Override to enable live view - our SDK adapter supports it
+    public bool CanShowLiveView => true;
     public bool LiveViewEnabled { get => _innerCamera.LiveViewEnabled; set => _innerCamera.LiveViewEnabled = value; }
     public bool HasBattery => true;
     public int BitDepth => _innerCamera.BitDepth;

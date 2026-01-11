@@ -86,6 +86,9 @@ internal static class LibRawNative
     public static extern void libraw_set_user_mul(IntPtr data, int index, float value);
 
     [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void libraw_set_use_camera_wb(IntPtr data, int value);
+
+    [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]
     public static extern float libraw_get_cam_mul(IntPtr data, int index);
 
     [DllImport(LibRawDll, CallingConvention = CallingConvention.Cdecl)]

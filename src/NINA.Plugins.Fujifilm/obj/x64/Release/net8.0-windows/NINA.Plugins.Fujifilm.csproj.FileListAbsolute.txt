@@ -49,3 +49,4 @@ C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Release\net8.0-windows\NINA.Plugins.Fujifilm.pdb
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Release\net8.0-windows\NINA.Plugins.Fujifilm.genruntimeconfig.cache
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Release\net8.0-windows\ref\NINA.Plugins.Fujifilm.dll
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Release\net8.0-windows\UI\LensInfoResources.baml

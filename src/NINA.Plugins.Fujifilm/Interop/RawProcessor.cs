@@ -616,21 +616,18 @@ public static class RawProcessor
     private static void ConfigureLibRawPreview(IntPtr processor, int demosaicAlgorithm = 0)
     {
         TryInvoke(() => LibRawNative.libraw_set_output_bps(processor, 16));
-        TryInvoke(() => LibRawNative.libraw_set_output_color(processor, 0)); // raw, camera space
+        TryInvoke(() => LibRawNative.libraw_set_output_color(processor, 1)); // sRGB for proper color rendering
         TryInvoke(() => LibRawNative.libraw_set_gamma(processor, 0, 1f));
         TryInvoke(() => LibRawNative.libraw_set_gamma(processor, 1, 1f));
         TryInvoke(() => LibRawNative.libraw_set_no_auto_bright(processor, 1));
         TryInvoke(() => LibRawNative.libraw_set_bright(processor, 1f));
 
+        // Use camera white balance for proper colors
+        TryInvoke(() => LibRawNative.libraw_set_use_camera_wb(processor, 1));
+
         // Set demosaicing algorithm for preview
         // 0=linear (fastest), 1=VNG, 2=PPG, 3=AHD (slowest/best)
         TryInvoke(() => LibRawNative.libraw_set_demosaic(processor, demosaicAlgorithm));
-
-        for (int i = 0; i < 4; i++)
-        {
-            int channel = i;
-            TryInvoke(() => LibRawNative.libraw_set_user_mul(processor, channel, 1f));
-        }
     }
 
     private static double[] CaptureCameraMultipliers(IntPtr processor)

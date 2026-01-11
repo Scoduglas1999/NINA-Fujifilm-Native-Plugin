@@ -219,6 +219,13 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
     }
 
     public bool IsConnected => _session != null && _session.Handle != IntPtr.Zero;
+
+    /// <summary>
+    /// Gets the native SDK session handle. Returns IntPtr.Zero if not connected.
+    /// Used internally for SDK operations that require the camera handle (e.g., live view).
+    /// </summary>
+    internal IntPtr SessionHandle => _session?.Handle ?? IntPtr.Zero;
+
     public CameraConfig? Configuration => _config;
     public IReadOnlyList<int> SupportedIsoValues => _supportedSensitivities;
     public IReadOnlyDictionary<int, double> ShutterCodeToDuration => _shutterCodeToDuration;
