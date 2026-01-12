@@ -106,6 +106,10 @@ public sealed class LiveViewService : ILiveViewService, IDisposable
             _fpsStopwatch.Restart();
             _streamCts = new CancellationTokenSource();
 
+            // Log subscriber count BEFORE starting the stream
+            var subscriberCount = FrameReceived?.GetInvocationList()?.Length ?? 0;
+            _diagnostics.RecordEvent("LiveView", $"DIAG: Starting stream with {subscriberCount} subscriber(s), _frameCount reset to {_frameCount}, instance: {GetHashCode()}");
+
             // Start the streaming loop
             _streamTask = StreamFramesAsync(handle, _streamCts.Token);
 
@@ -243,8 +247,16 @@ public sealed class LiveViewService : ILiveViewService, IDisposable
                                     imageInfo.lFormat,
                                     DateTime.UtcNow.Ticks);
 
+                                var prevCount = _frameCount;
                                 _frameCount++;
                                 framesSinceLastUpdate++;
+
+                                // Log first 5 frames for debugging
+                                if (_frameCount <= 5)
+                                {
+                                    var subscriberCount = FrameReceived?.GetInvocationList()?.Length ?? 0;
+                                    _diagnostics.RecordEvent("LiveView", $"DIAG Frame #{_frameCount}: {imageInfo.lImagePixWidth}x{imageInfo.lImagePixHeight}, {buffer.Length} bytes, {subscriberCount} subscriber(s), prevCount={prevCount}");
+                                }
 
                                 FrameReceived?.Invoke(this, frame);
                             }

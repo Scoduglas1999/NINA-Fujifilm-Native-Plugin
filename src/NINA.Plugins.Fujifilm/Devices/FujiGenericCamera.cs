@@ -153,8 +153,13 @@ internal sealed class FujiGenericCamera : ICamera
     public SensorType SensorType => _innerCamera.SensorType;
     public short BayerOffsetX => _innerCamera.BayerOffsetX;
     public short BayerOffsetY => _innerCamera.BayerOffsetY;
-    public int CameraXSize => _innerCamera.CameraXSize;
-    public int CameraYSize => _innerCamera.CameraYSize;
+    // Override CameraXSize/CameraYSize during live view to return live view dimensions
+    public int CameraXSize => _sdkAdapter.IsLiveViewActive && _sdkAdapter.LiveViewWidth > 0
+        ? _sdkAdapter.LiveViewWidth
+        : _innerCamera.CameraXSize;
+    public int CameraYSize => _sdkAdapter.IsLiveViewActive && _sdkAdapter.LiveViewHeight > 0
+        ? _sdkAdapter.LiveViewHeight
+        : _innerCamera.CameraYSize;
     public double ExposureMin => _innerCamera.ExposureMin;
     public double ExposureMax => _innerCamera.ExposureMax;
     public short MaxBinX => _innerCamera.MaxBinX;

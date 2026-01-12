@@ -32,13 +32,14 @@ C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\x64\
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\x64\Debug\net8.0-windows\Microsoft.Web.WebView2.WinForms.xml
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\bin\x64\Debug\net8.0-windows\Microsoft.Web.WebView2.Wpf.xml
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\NINA.Plugins.Fujifilm.csproj.AssemblyReference.cache
-C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\UI\SettingsView.baml
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\UI\LensInfoResources.baml
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\UI\Options.g.cs
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\UI\SettingsView.g.cs
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\GeneratedInternalTypeHelper.g.cs
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\NINA.Plugins.Fujifilm_MarkupCompile.cache
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\NINA.Plugins.Fujifilm_MarkupCompile.lref
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\UI\Options.baml
+C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\UI\SettingsView.baml
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\NINA.Plugins.Fujifilm.g.resources
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\NINA.Plugins.Fujifilm.GeneratedMSBuildEditorConfig.editorconfig
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\NINA.Plugins.Fujifilm.csproj.CoreCompileInputs.cache
@@ -49,4 +50,3 @@ C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\NINA.Plugins.Fujifilm.pdb
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\NINA.Plugins.Fujifilm.genruntimeconfig.cache
 C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\ref\NINA.Plugins.Fujifilm.dll
-C:\Users\scdou\Documents\NINA.Fujifilm.Plugin\src\NINA.Plugins.Fujifilm\obj\x64\Debug\net8.0-windows\UI\LensInfoResources.baml
