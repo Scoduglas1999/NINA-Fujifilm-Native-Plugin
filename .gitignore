@@ -38,6 +38,11 @@ nina-tree.json
 build.log
 *_wpftmp.csproj
 
+# Personal documentation
+docs/
+SDK_Programming_Reference.md
+CLAUDE.md
+
 # OS files
 .DS_Store
 Thumbs.db
