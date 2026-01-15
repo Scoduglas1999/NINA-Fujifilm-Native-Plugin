@@ -1,1 +1,43 @@
-*.md
+# Build outputs
+bin/
+obj/
+publish/
+dist/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.cache
+
+# Build artifacts
+*.exe
+*.zip
+*.dll
+*.pdb
+*.log
+
+# Except native dependencies needed for build
+!src/NINA.Plugins.Fujifilm/Interop/Native/*.dll
+
+# NuGet
+packages/
+*.nupkg
+
+# Installer outputs
+installer/
+
+# Deployment scripts (not needed for compilation)
+deploy.ps1
+installer.iss
+
+# Debug/temp files
+debug_log.txt
+msbuild.log
+nina-tree.json
+build.log
+*_wpftmp.csproj
+
+# OS files
+.DS_Store
+Thumbs.db
