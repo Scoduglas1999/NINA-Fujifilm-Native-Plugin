@@ -137,7 +137,7 @@ Access plugin settings through **Options > Equipment > Camera > Fujifilm**.
 ## Limitations
 
 - **No Live View**: Live view video streaming is not currently implemented
-> Live view implementation currently under development, check back later. 
+> Live view support currently exists but is really bad. Currently runs around 17fps and the quality is really not good, consider it a proof of concept at best.
 - **No Binning**: Only full-frame capture is supported
 - **RAW Only**: Plugin captures RAW images; JPEG capture is not supported
 
