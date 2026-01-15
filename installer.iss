@@ -2,7 +2,7 @@
 ; Download Inno Setup from: https://jrsoftware.org/isdl.php
 
 #define MyAppName "NINA Fujifilm Plugin"
-#define MyAppVersion "2.3.0.0"
+#define MyAppVersion "2.5.0.0"
 #define MyAppPublisher "Scdouglas"
 #define MyAppURL "https://github.com/scdouglas/NINA.Fujifilm.Plugin"
 

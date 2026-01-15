@@ -1,8 +1,8 @@
 ; Inno Setup Script for Fujifilm Native Camera Plugin for N.I.N.A.
-; Version: 2.4.9.0
+; Version: 2.5.0.0
 
 #define MyAppName "Fujifilm Native Camera Plugin for N.I.N.A."
-#define MyAppVersion "2.4.9.0"
+#define MyAppVersion "2.5.0.0"
 #define MyAppPublisher "Scdouglas"
 #define MyAppURL "https://github.com/scdouglas/NINA.Fujifilm.Plugin"
 
