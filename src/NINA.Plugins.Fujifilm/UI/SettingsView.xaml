@@ -107,13 +107,25 @@
             <!-- Output Settings -->
             <TextBlock Text="Output" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
             <StackPanel Margin="0,0,0,24">
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                     <CheckBox IsChecked="{Binding Settings.SaveNativeRafSidecar, Mode=TwoWay}"
                               VerticalAlignment="Center"
                               Margin="0,0,8,0" />
-                    <TextBlock Text="Save native RAF sidecar"
-                               VerticalAlignment="Center" />
+                    <TextBlock Text="Save native RAF files (recommended)"
+                               VerticalAlignment="Center" 
+                               FontWeight="SemiBold" />
                 </StackPanel>
+                <TextBlock TextWrapping="Wrap"
+                           Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                           FontSize="11"
+                           Margin="24,0,0,12">
+                    <Run FontWeight="SemiBold" Foreground="Orange">IMPORTANT for X-Trans cameras:</Run>
+                    RAF files are required for proper processing in PixInsight and other stacking software.
+                    The FITS/XISF files contain a synthetic preview conversion.
+                    RAF files preserve the true sensor data for accurate debayering.
+                    <LineBreak />
+                    Files are saved to your NINA image directory.
+                </TextBlock>
                 <StackPanel Orientation="Horizontal">
                     <CheckBox IsChecked="{Binding Settings.EnableExtendedFitsMetadata, Mode=TwoWay}"
                               VerticalAlignment="Center"

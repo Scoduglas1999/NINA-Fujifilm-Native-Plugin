@@ -37,7 +37,18 @@ public sealed class FujiSettings
     public int BulbReleaseDelayMs { get; set; } = 500;
     public bool AutoDeleteNonRaw { get; set; } = true;
     public int FocusBacklashSteps { get; set; } = 0;
-    public bool SaveNativeRafSidecar { get; set; } = false;
+    
+    /// <summary>
+    /// Whether to save native RAF files alongside NINA's image files.
+    /// IMPORTANT: For X-Trans cameras (X-T2, X-T3, X-T4, X-T5, X-H2, X-S10, etc.), 
+    /// RAF files are REQUIRED for proper processing in PixInsight and other stacking software.
+    /// The FITS/XISF files contain a synthetic RGGB conversion suitable only for NINA's preview.
+    /// RAF files preserve the true X-Trans sensor data for accurate debayering and calibration.
+    /// For GFX cameras (standard Bayer), RAF is optional but still recommended for maximum flexibility.
+    /// Default is TRUE to ensure proper astrophotography workflow support.
+    /// </summary>
+    public bool SaveNativeRafSidecar { get; set; } = true;
+    
     public bool EnableExtendedFitsMetadata { get; set; } = true;
 
     /// <summary>
