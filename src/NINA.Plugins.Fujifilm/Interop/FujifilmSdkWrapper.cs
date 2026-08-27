@@ -77,11 +77,20 @@ internal static class FujifilmSdkWrapper
     // ========== Battery Info API (from XAPIOpt.h) ==========
     public const int API_CODE_CheckBatteryInfo = 0x4055;
 
-    // Legacy bodies such as X-T4 expose the custom auto-power-off property.
+    // Newer bodies expose AutoPowerOffSetting with enumerated timeout values.
+    public const int API_CODE_SetAutoPowerOffSetting = 0x411B;
+    public const int API_CODE_GetAutoPowerOffSetting = 0x411C;
+    public const int API_PARAM_AutoPowerOffSetting = 1;
+    public const int SDK_AUTOPOWEROFF_OFF = 0x0003;
+
+    // Legacy bodies such as X-T4 expose the boolean CustomAutoPowerOff property.
     public const int API_CODE_SetCustomAutoPowerOff = 0x4229;
     public const int API_CODE_GetCustomAutoPowerOff = 0x4230;
     public const int API_PARAM_CustomAutoPowerOff = 1;
-    public const int SDK_AUTOPOWEROFF_OFF = 0x0003;
+    // CustomAutoPowerOff is the older boolean property used by X-T4: 0=off, 1=on.
+    // Do not use SDK_AUTOPOWEROFF_OFF (0x0003), which belongs to the newer
+    // AutoPowerOffSetting API (0x411A-0x411C).
+    public const int SDK_CUSTOM_AUTOPOWEROFF_OFF = 0x0000;
 
     // The API parameter is the number of output values the call produces: current bodies return 8
     // and older ones 6. Which applies is discovered by asking the camera - see

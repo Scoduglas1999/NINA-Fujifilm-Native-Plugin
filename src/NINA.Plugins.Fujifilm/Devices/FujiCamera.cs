@@ -53,6 +53,7 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
     private int _lastSdkErrorCode;
     private int _bulbReleaseHeld;
     private int? _originalAutoPowerOff;
+    private int? _autoPowerOffSetApiCode;
     private string? _connectedDeviceId;
     private FujiCameraMetadata _metadata = FujiCameraMetadata.Empty;
 
@@ -421,17 +422,55 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
 
     private void DisableAutoPowerOffForSession()
     {
-        if (_session == null ||
-            !_apiCapabilities.SupportsAll(
-                FujifilmSdkWrapper.API_CODE_GetCustomAutoPowerOff,
-                FujifilmSdkWrapper.API_CODE_SetCustomAutoPowerOff))
+        if (_session == null)
         {
             return;
         }
 
+        var advertisesNewPowerControl = _apiCapabilities.Confirms(
+            FujifilmSdkWrapper.API_CODE_GetAutoPowerOffSetting) &&
+            _apiCapabilities.Confirms(FujifilmSdkWrapper.API_CODE_SetAutoPowerOffSetting);
+        var advertisesLegacyPowerControl = _apiCapabilities.Confirms(
+            FujifilmSdkWrapper.API_CODE_GetCustomAutoPowerOff) &&
+            _apiCapabilities.Confirms(FujifilmSdkWrapper.API_CODE_SetCustomAutoPowerOff);
+        var legacyHeaderDefinesPowerControl = string.Equals(
+            _metadata.ProductName,
+            "X-T4",
+            StringComparison.OrdinalIgnoreCase);
+        int getApiCode;
+        int setApiCode;
+        int offValue;
+        string protocol;
+        if (advertisesNewPowerControl)
+        {
+            getApiCode = FujifilmSdkWrapper.API_CODE_GetAutoPowerOffSetting;
+            setApiCode = FujifilmSdkWrapper.API_CODE_SetAutoPowerOffSetting;
+            offValue = FujifilmSdkWrapper.SDK_AUTOPOWEROFF_OFF;
+            protocol = "AutoPowerOffSetting";
+        }
+        else if (advertisesLegacyPowerControl || legacyHeaderDefinesPowerControl)
+        {
+            getApiCode = FujifilmSdkWrapper.API_CODE_GetCustomAutoPowerOff;
+            setApiCode = FujifilmSdkWrapper.API_CODE_SetCustomAutoPowerOff;
+            offValue = FujifilmSdkWrapper.SDK_CUSTOM_AUTOPOWEROFF_OFF;
+            protocol = "CustomAutoPowerOff";
+        }
+        else
+        {
+            _diagnostics.RecordEvent("Camera",
+                $"Auto power-off control skipped: {_metadata.ProductName} does not advertise the required SDK APIs.");
+            return;
+        }
+
+        if (!advertisesNewPowerControl && !advertisesLegacyPowerControl)
+        {
+            _diagnostics.RecordEvent("Camera",
+                "Using the X-T4 model-header auto power-off API path; this firmware does not include those codes in its runtime API list.");
+        }
+
         var getResult = FujifilmSdkWrapper.XSDK_GetProp(
             _session.Handle,
-            FujifilmSdkWrapper.API_CODE_GetCustomAutoPowerOff,
+            getApiCode,
             FujifilmSdkWrapper.API_PARAM_CustomAutoPowerOff,
             out var current);
         if (getResult != FujifilmSdkWrapper.XSDK_COMPLETE)
@@ -441,43 +480,45 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
         }
 
         _originalAutoPowerOff = current;
-        if (current == FujifilmSdkWrapper.SDK_AUTOPOWEROFF_OFF)
+        _autoPowerOffSetApiCode = setApiCode;
+        if (current == offValue)
         {
-            _diagnostics.RecordEvent("Camera", "Auto power-off is already disabled.");
+            _diagnostics.RecordEvent("Camera", $"Auto power-off is already disabled via {protocol}.");
             return;
         }
 
         var setResult = FujifilmSdkWrapper.XSDK_SetProp(
             _session.Handle,
-            FujifilmSdkWrapper.API_CODE_SetCustomAutoPowerOff,
+            setApiCode,
             FujifilmSdkWrapper.API_PARAM_CustomAutoPowerOff,
-            FujifilmSdkWrapper.SDK_AUTOPOWEROFF_OFF);
+            offValue);
         _diagnostics.RecordEvent("Camera", setResult == FujifilmSdkWrapper.XSDK_COMPLETE
-            ? $"Disabled auto power-off for the NINA session (previous value=0x{current:X})."
-            : $"Could not disable auto power-off (result={setResult}); leaving the camera setting unchanged.");
+            ? $"Disabled auto power-off via {protocol} for the NINA session (previous value=0x{current:X})."
+            : $"Could not disable auto power-off via {protocol} (result={setResult}); leaving the camera setting unchanged.");
     }
 
     private void RestoreAutoPowerOff()
     {
-        if (_session == null || _originalAutoPowerOff is not int original)
+        if (_session == null ||
+            _originalAutoPowerOff is not int original ||
+            _autoPowerOffSetApiCode is not int setApiCode)
         {
             _originalAutoPowerOff = null;
+            _autoPowerOffSetApiCode = null;
             return;
         }
 
-        if (original != FujifilmSdkWrapper.SDK_AUTOPOWEROFF_OFF)
-        {
-            var result = FujifilmSdkWrapper.XSDK_SetProp(
-                _session.Handle,
-                FujifilmSdkWrapper.API_CODE_SetCustomAutoPowerOff,
-                FujifilmSdkWrapper.API_PARAM_CustomAutoPowerOff,
-                original);
-            _diagnostics.RecordEvent("Camera", result == FujifilmSdkWrapper.XSDK_COMPLETE
-                ? $"Restored auto power-off to 0x{original:X}."
-                : $"Could not restore auto power-off (result={result}).");
-        }
+        var result = FujifilmSdkWrapper.XSDK_SetProp(
+            _session.Handle,
+            setApiCode,
+            FujifilmSdkWrapper.API_PARAM_CustomAutoPowerOff,
+            original);
+        _diagnostics.RecordEvent("Camera", result == FujifilmSdkWrapper.XSDK_COMPLETE
+            ? $"Restored auto power-off to 0x{original:X} using API 0x{setApiCode:X}."
+            : $"Could not restore auto power-off with API 0x{setApiCode:X} (result={result}).");
 
         _originalAutoPowerOff = null;
+        _autoPowerOffSetApiCode = null;
     }
 
     private async Task ApplyConfigurationAsync(CameraConfig config, CancellationToken cancellationToken)
