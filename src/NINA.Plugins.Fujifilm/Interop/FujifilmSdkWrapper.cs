@@ -77,6 +77,12 @@ internal static class FujifilmSdkWrapper
     // ========== Battery Info API (from XAPIOpt.h) ==========
     public const int API_CODE_CheckBatteryInfo = 0x4055;
 
+    // Legacy bodies such as X-T4 expose the custom auto-power-off property.
+    public const int API_CODE_SetCustomAutoPowerOff = 0x4229;
+    public const int API_CODE_GetCustomAutoPowerOff = 0x4230;
+    public const int API_PARAM_CustomAutoPowerOff = 1;
+    public const int SDK_AUTOPOWEROFF_OFF = 0x0003;
+
     // The API parameter is the number of output values the call produces: current bodies return 8
     // and older ones 6. Which applies is discovered by asking the camera - see
     // FujifilmBatteryProtocol - rather than from a list of model names, so a model the plugin has

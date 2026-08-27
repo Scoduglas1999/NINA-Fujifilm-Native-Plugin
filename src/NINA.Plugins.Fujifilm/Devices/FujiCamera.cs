@@ -52,6 +52,7 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
     private int _lastApiErrorCode;
     private int _lastSdkErrorCode;
     private int _bulbReleaseHeld;
+    private int? _originalAutoPowerOff;
     private string? _connectedDeviceId;
     private FujiCameraMetadata _metadata = FujiCameraMetadata.Empty;
 
@@ -386,6 +387,8 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
         // Initialize metadata with device info
         InitializeMetadata();
 
+        DisableAutoPowerOffForSession();
+
         // Refresh operating state (includes battery)
         RefreshOperatingState();
 
@@ -403,6 +406,7 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
         catch
         {
             var failedSession = _session;
+            RestoreAutoPowerOff();
             _session = null;
             _connectedDeviceId = null;
             _config = null;
@@ -413,6 +417,67 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
             RaisePropertyChanged(nameof(IsConnected));
             throw;
         }
+    }
+
+    private void DisableAutoPowerOffForSession()
+    {
+        if (_session == null ||
+            !_apiCapabilities.SupportsAll(
+                FujifilmSdkWrapper.API_CODE_GetCustomAutoPowerOff,
+                FujifilmSdkWrapper.API_CODE_SetCustomAutoPowerOff))
+        {
+            return;
+        }
+
+        var getResult = FujifilmSdkWrapper.XSDK_GetProp(
+            _session.Handle,
+            FujifilmSdkWrapper.API_CODE_GetCustomAutoPowerOff,
+            FujifilmSdkWrapper.API_PARAM_CustomAutoPowerOff,
+            out var current);
+        if (getResult != FujifilmSdkWrapper.XSDK_COMPLETE)
+        {
+            _diagnostics.RecordEvent("Camera", $"Could not read auto power-off setting (result={getResult}); leaving it unchanged.");
+            return;
+        }
+
+        _originalAutoPowerOff = current;
+        if (current == FujifilmSdkWrapper.SDK_AUTOPOWEROFF_OFF)
+        {
+            _diagnostics.RecordEvent("Camera", "Auto power-off is already disabled.");
+            return;
+        }
+
+        var setResult = FujifilmSdkWrapper.XSDK_SetProp(
+            _session.Handle,
+            FujifilmSdkWrapper.API_CODE_SetCustomAutoPowerOff,
+            FujifilmSdkWrapper.API_PARAM_CustomAutoPowerOff,
+            FujifilmSdkWrapper.SDK_AUTOPOWEROFF_OFF);
+        _diagnostics.RecordEvent("Camera", setResult == FujifilmSdkWrapper.XSDK_COMPLETE
+            ? $"Disabled auto power-off for the NINA session (previous value=0x{current:X})."
+            : $"Could not disable auto power-off (result={setResult}); leaving the camera setting unchanged.");
+    }
+
+    private void RestoreAutoPowerOff()
+    {
+        if (_session == null || _originalAutoPowerOff is not int original)
+        {
+            _originalAutoPowerOff = null;
+            return;
+        }
+
+        if (original != FujifilmSdkWrapper.SDK_AUTOPOWEROFF_OFF)
+        {
+            var result = FujifilmSdkWrapper.XSDK_SetProp(
+                _session.Handle,
+                FujifilmSdkWrapper.API_CODE_SetCustomAutoPowerOff,
+                FujifilmSdkWrapper.API_PARAM_CustomAutoPowerOff,
+                original);
+            _diagnostics.RecordEvent("Camera", result == FujifilmSdkWrapper.XSDK_COMPLETE
+                ? $"Restored auto power-off to 0x{original:X}."
+                : $"Could not restore auto power-off (result={result}).");
+        }
+
+        _originalAutoPowerOff = null;
     }
 
     private async Task ApplyConfigurationAsync(CameraConfig config, CancellationToken cancellationToken)
@@ -1874,6 +1939,7 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
 
         if (_session != null && _session.Handle != IntPtr.Zero)
         {
+            RestoreAutoPowerOff();
             _diagnostics.RecordEvent("Camera", $"Closing camera session {_session.Handle}");
             await _interop.CloseCameraAsync(_session).ConfigureAwait(false);
             _session = null;
