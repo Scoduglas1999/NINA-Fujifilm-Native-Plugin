@@ -49,9 +49,21 @@ Patreon support helps with the unglamorous work that keeps camera plugins useful
 - **Card recording is disabled** while connected, so card writes do not compete with the USB download
 - **Battery reporting** on any body that implements a known query layout
 - **Lens detection**: the attached lens model and whether it has optical stabilisation
+- **Electronic aperture control**: discovers the f-numbers reported by the attached lens and lets
+  the user select and verify aperture from the Fuji Lens panel. Setting an aperture automatically
+  switches the camera to Manual exposure mode so the body does not retain automatic aperture control
 
 Optional features are gated on the list of API codes the connected camera advertises, so a body that
 does not implement one is simply left alone rather than being sent a call it will reject.
+Electronic aperture is the exception: supported bodies do not consistently include the standard
+Cap/Set/Get aperture calls in that list, so the plugin uses `XSDK_CapAperture` as the authoritative
+capability check.
+
+For integration with other N.I.N.A. plugins and automation tools, the camera advertises the
+ASCOM-style custom action `Camera:SetAperture`. Pass an invariant JSON object such as
+`{"fNumber":2.8}`. On success it returns the requested and camera-verified f-numbers as JSON;
+invalid parameters, unsupported values, disconnected state, and SDK failures are reported as
+exceptions.
 
 ### X-Trans Sensor Support
 
@@ -189,6 +201,7 @@ The plugin adds these to N.I.N.A.'s advanced sequencer under the **Fujifilm** ca
 | **Park Fujifilm focuser at infinity** | Moves the lens to its infinity mark, with an optional offset, so a session starts from a known focus position |
 | **Set Fujifilm RAW quality** | Changes RAW bit depth and compression mid-sequence |
 | **Turn off Fujifilm Long Exposure NR** | Ensures the camera is not shooting its own darks |
+| **Set Fujifilm aperture** | Switches to Manual exposure mode, then sets and verifies the f-number of an attached electronic lens |
 
 ---
 

@@ -38,6 +38,7 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
     private IReadOnlyList<int> _supportedSensitivities = Array.Empty<int>();
     private IReadOnlyDictionary<int, double> _shutterCodeToDuration = new Dictionary<int, double>();
     private IReadOnlyList<int> _supportedShutterCodes = Array.Empty<int>(); // Store originally queried codes for validation
+    private IReadOnlyList<int> _supportedApertureValues = Array.Empty<int>();
     private bool _bulbCapable;
     private FujiApiCapabilities _apiCapabilities = FujiApiCapabilities.Unknown;
     private bool _longExposureNoiseReductionOn;
@@ -51,10 +52,28 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
     private int _lastApiErrorCode;
     private int _lastSdkErrorCode;
     private int _bulbReleaseHeld;
+    private int? _originalAutoPowerOff;
+    private int? _autoPowerOffSetApiCode;
     private string? _connectedDeviceId;
     private FujiCameraMetadata _metadata = FujiCameraMetadata.Empty;
 
     public bool SupportsBulb => _bulbCapable;
+
+    public bool SupportsApertureControl =>
+        IsConnected &&
+        _supportedApertureValues.Count > 0;
+
+    public IReadOnlyList<double> AvailableApertures =>
+        _supportedApertureValues.Select(FujifilmApertureCatalog.ToFNumber).ToArray();
+
+    public double CurrentAperture => _metadata.CurrentAperture;
+
+    public string ChargingStatus => _metadata.IsCharging switch
+    {
+        true => "Yes",
+        false => "No",
+        null => "Unknown"
+    };
 
     public FujiCameraCapabilities GetCapabilitiesSnapshot()
     {
@@ -376,6 +395,8 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
         // Initialize metadata with device info
         InitializeMetadata();
 
+        DisableAutoPowerOffForSession();
+
         // Refresh operating state (includes battery)
         RefreshOperatingState();
 
@@ -393,6 +414,7 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
         catch
         {
             var failedSession = _session;
+            RestoreAutoPowerOff();
             _session = null;
             _connectedDeviceId = null;
             _config = null;
@@ -403,6 +425,107 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
             RaisePropertyChanged(nameof(IsConnected));
             throw;
         }
+    }
+
+    private void DisableAutoPowerOffForSession()
+    {
+        if (_session == null)
+        {
+            return;
+        }
+
+        var advertisesNewPowerControl = _apiCapabilities.Confirms(
+            FujifilmSdkWrapper.API_CODE_GetAutoPowerOffSetting) &&
+            _apiCapabilities.Confirms(FujifilmSdkWrapper.API_CODE_SetAutoPowerOffSetting);
+        var advertisesLegacyPowerControl = _apiCapabilities.Confirms(
+            FujifilmSdkWrapper.API_CODE_GetCustomAutoPowerOff) &&
+            _apiCapabilities.Confirms(FujifilmSdkWrapper.API_CODE_SetCustomAutoPowerOff);
+        var legacyHeaderDefinesPowerControl = string.Equals(
+            _metadata.ProductName,
+            "X-T4",
+            StringComparison.OrdinalIgnoreCase);
+        int getApiCode;
+        int setApiCode;
+        int offValue;
+        string protocol;
+        if (advertisesNewPowerControl)
+        {
+            getApiCode = FujifilmSdkWrapper.API_CODE_GetAutoPowerOffSetting;
+            setApiCode = FujifilmSdkWrapper.API_CODE_SetAutoPowerOffSetting;
+            offValue = FujifilmSdkWrapper.SDK_AUTOPOWEROFF_OFF;
+            protocol = "AutoPowerOffSetting";
+        }
+        else if (advertisesLegacyPowerControl || legacyHeaderDefinesPowerControl)
+        {
+            getApiCode = FujifilmSdkWrapper.API_CODE_GetCustomAutoPowerOff;
+            setApiCode = FujifilmSdkWrapper.API_CODE_SetCustomAutoPowerOff;
+            offValue = FujifilmSdkWrapper.SDK_CUSTOM_AUTOPOWEROFF_OFF;
+            protocol = "CustomAutoPowerOff";
+        }
+        else
+        {
+            _diagnostics.RecordEvent("Camera",
+                $"Auto power-off control skipped: {_metadata.ProductName} does not advertise the required SDK APIs.");
+            return;
+        }
+
+        if (!advertisesNewPowerControl && !advertisesLegacyPowerControl)
+        {
+            _diagnostics.RecordEvent("Camera",
+                "Using the X-T4 model-header auto power-off API path; this firmware does not include those codes in its runtime API list.");
+        }
+
+        var getResult = FujifilmSdkWrapper.XSDK_GetProp(
+            _session.Handle,
+            getApiCode,
+            FujifilmSdkWrapper.API_PARAM_CustomAutoPowerOff,
+            out var current);
+        if (getResult != FujifilmSdkWrapper.XSDK_COMPLETE)
+        {
+            _diagnostics.RecordEvent("Camera", $"Could not read auto power-off setting (result={getResult}); leaving it unchanged.");
+            return;
+        }
+
+        _originalAutoPowerOff = current;
+        _autoPowerOffSetApiCode = setApiCode;
+        if (current == offValue)
+        {
+            _diagnostics.RecordEvent("Camera", $"Auto power-off is already disabled via {protocol}.");
+            return;
+        }
+
+        var setResult = FujifilmSdkWrapper.XSDK_SetProp(
+            _session.Handle,
+            setApiCode,
+            FujifilmSdkWrapper.API_PARAM_CustomAutoPowerOff,
+            offValue);
+        _diagnostics.RecordEvent("Camera", setResult == FujifilmSdkWrapper.XSDK_COMPLETE
+            ? $"Disabled auto power-off via {protocol} for the NINA session (previous value=0x{current:X})."
+            : $"Could not disable auto power-off via {protocol} (result={setResult}); leaving the camera setting unchanged.");
+    }
+
+    private void RestoreAutoPowerOff()
+    {
+        if (_session == null ||
+            _originalAutoPowerOff is not int original ||
+            _autoPowerOffSetApiCode is not int setApiCode)
+        {
+            _originalAutoPowerOff = null;
+            _autoPowerOffSetApiCode = null;
+            return;
+        }
+
+        var result = FujifilmSdkWrapper.XSDK_SetProp(
+            _session.Handle,
+            setApiCode,
+            FujifilmSdkWrapper.API_PARAM_CustomAutoPowerOff,
+            original);
+        _diagnostics.RecordEvent("Camera", result == FujifilmSdkWrapper.XSDK_COMPLETE
+            ? $"Restored auto power-off to 0x{original:X} using API 0x{setApiCode:X}."
+            : $"Could not restore auto power-off with API 0x{setApiCode:X} (result={result}).");
+
+        _originalAutoPowerOff = null;
+        _autoPowerOffSetApiCode = null;
     }
 
     private async Task ApplyConfigurationAsync(CameraConfig config, CancellationToken cancellationToken)
@@ -796,6 +919,8 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
             {
                 _metadata.BatteryLevel = -1;
                 _metadata.BatteryStatus = "Unavailable";
+                _metadata.IsCharging = null;
+                RaisePropertyChanged(nameof(ChargingStatus));
                 _diagnostics.RecordEvent("Camera", "This camera did not accept any known battery query layout; battery reporting is unavailable.");
                 return;
             }
@@ -814,6 +939,8 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
 
             if (result == FujifilmSdkWrapper.XSDK_COMPLETE)
             {
+                var previousChargingState = _metadata.IsCharging;
+                _metadata.IsCharging = FujifilmBatteryProtocol.GetChargingState(bodyBatteryInfo);
                 // Prefer the ratio (0-100%) if available, otherwise use the status code
                 int batteryLevel;
                 if (bodyBatteryRatio >= 0 && bodyBatteryRatio <= 100)
@@ -833,7 +960,12 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
                     _ => "Critical"
                 };
 
-                _diagnostics.RecordEvent("Camera", $"Battery: {_metadata.BatteryLevel}% ({_metadata.BatteryStatus})");
+                if (previousChargingState != _metadata.IsCharging)
+                {
+                    RaisePropertyChanged(nameof(ChargingStatus));
+                }
+
+                _diagnostics.RecordEvent("Camera", $"Battery: {_metadata.BatteryLevel}% ({_metadata.BatteryStatus}), charging={ChargingStatus}");
             }
             else
             {
@@ -902,6 +1034,7 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
                 _metadata.LensProductName = lensInfo.strProductName?.Trim() ?? string.Empty;
                 _metadata.LensSerialNumber = lensInfo.strSerialNo?.Trim() ?? string.Empty;
                 _metadata.LensModel = lensInfo.strModel?.Trim() ?? string.Empty;
+                _metadata.LensVendor = FujifilmLensVendorCatalog.Resolve(_metadata.LensModel, _metadata.LensProductName);
                 _metadata.HasImageStabilization = lensInfo.lISCapability != 0;
                 _metadata.HasManualFocus = lensInfo.lMFCapability != 0;
                 _metadata.IsZoomLens = lensInfo.lZoomPosCapability != 0;
@@ -914,11 +1047,35 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
                 _diagnostics.RecordEvent("Camera", $"XSDK_GetLensInfo FAILED: result={lensInfoResult}, ApiCode=0x{error.ApiCode:X}, ErrCode=0x{error.ErrorCode:X}. No lens detected or lens detection not supported.");
             }
 
-            // Get current aperture (f-number * 100)
-            var apertureResult = FujifilmSdkWrapper.XSDK_GetProp(
+            // CapAperture requires the SDK's lens-position token even when LensInfo says that
+            // zoom-position capability is unavailable. Viltrox AF 27/1.2 reports Zoom=False
+            // with token 1, while Fujinon XF18-135 reports Zoom=False but changes its token as
+            // the lens is zoomed. Treat the returned token, rather than the capability flag, as
+            // authoritative for aperture enumeration.
+            var previousApertureZoomPosition = _metadata.CurrentZoomPosition;
+            var apertureZoomPositionChanged = false;
+            // Viltrox AF 27/1.2 reports Zoom=False but returns token 1; passing the assumed prime
+            // value 0 makes the otherwise-supported capability call fail.
+            if (FujifilmSdkWrapper.XSDK_GetLensZoomPos(_session.Handle, out var apertureZoomPosition) ==
+                FujifilmSdkWrapper.XSDK_COMPLETE)
+            {
+                apertureZoomPositionChanged = apertureZoomPosition != previousApertureZoomPosition;
+                _metadata.CurrentZoomPosition = apertureZoomPosition;
+                _diagnostics.RecordEvent("Camera",
+                    $"Aperture capability lens-position token: {apertureZoomPosition} (Zoom={_metadata.IsZoomLens}).");
+            }
+
+            // Avoid repeatedly querying stable lenses, but refresh whenever the actual token
+            // changes. Do not rely on lZoomPosCapability: some Fujinon zoom lenses report it as
+            // false even though XSDK_GetLensZoomPos succeeds and changes with focal length.
+            if (apertureZoomPositionChanged || _supportedApertureValues.Count == 0)
+            {
+                _supportedApertureValues = QueryApertureValues(_metadata.CurrentZoomPosition);
+            }
+
+            // Get current aperture (f-number * 100).
+            var apertureResult = FujifilmSdkWrapper.XSDK_GetAperture(
                 _session.Handle,
-                FujifilmSdkWrapper.API_CODE_GetAperture,
-                FujifilmSdkWrapper.API_PARAM_Aperture,
                 out int apertureValue);
 
             if (apertureResult == FujifilmSdkWrapper.XSDK_COMPLETE)
@@ -932,15 +1089,275 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
                 _diagnostics.RecordEvent("Camera", $"GetAperture failed: result={apertureResult}");
             }
 
-            // Get zoom position for zoom lenses
-            if (_metadata.IsZoomLens)
-            {
-                RefreshZoomPosition();
-            }
+            RaisePropertyChanged(nameof(SupportsApertureControl));
+            RaisePropertyChanged(nameof(AvailableApertures));
+            RaisePropertyChanged(nameof(CurrentAperture));
         }
         catch (Exception ex)
         {
             _diagnostics.RecordEvent("Camera", $"Lens metadata refresh error: {ex.Message}");
+        }
+    }
+
+    private IReadOnlyList<int> QueryApertureValues(int zoomPosition)
+    {
+        var values = QueryApertureValuesCore(zoomPosition);
+        if (values.Count > 0 || _session == null)
+        {
+            return values;
+        }
+
+        if (FujifilmSdkWrapper.XSDK_GetAEMode(_session.Handle, out var originalAeMode) !=
+            FujifilmSdkWrapper.XSDK_COMPLETE || originalAeMode == FujifilmSdkWrapper.XSDK_AE_OFF)
+        {
+            return values;
+        }
+
+        var setResult = FujifilmSdkWrapper.XSDK_SetAEMode(
+            _session.Handle,
+            FujifilmSdkWrapper.XSDK_AE_OFF);
+        if (setResult != FujifilmSdkWrapper.XSDK_COMPLETE)
+        {
+            var error = FujifilmSdkWrapper.GetLastError(_session.Handle);
+            _diagnostics.RecordEvent("Camera",
+                $"Could not switch temporarily to Manual AE for aperture enumeration " +
+                $"(result={setResult}, ApiCode=0x{error.ApiCode:X}, ErrCode=0x{error.ErrorCode:X}).");
+            return values;
+        }
+
+        _diagnostics.RecordEvent("Camera",
+            $"Temporarily switched AE mode from 0x{originalAeMode:X} to Manual for aperture enumeration.");
+        try
+        {
+            return QueryApertureValuesCore(zoomPosition);
+        }
+        finally
+        {
+            var restoreResult = FujifilmSdkWrapper.XSDK_SetAEMode(_session.Handle, originalAeMode);
+            _diagnostics.RecordEvent("Camera", restoreResult == FujifilmSdkWrapper.XSDK_COMPLETE
+                ? $"Restored AE mode to 0x{originalAeMode:X} after aperture enumeration."
+                : $"Warning: could not restore AE mode to 0x{originalAeMode:X} after aperture enumeration (result={restoreResult}).");
+        }
+    }
+
+    private IReadOnlyList<int> QueryApertureValuesCore(int zoomPosition)
+    {
+        if (_session == null)
+        {
+            return Array.Empty<int>();
+        }
+
+        var count = 0;
+        try
+        {
+            var countResult = FujifilmSdkWrapper.XSDK_CapAperture(
+                _session.Handle, zoomPosition, ref count, IntPtr.Zero);
+            if (countResult != FujifilmSdkWrapper.XSDK_COMPLETE || count <= 0)
+            {
+                _diagnostics.RecordEvent("Camera",
+                    $"CapAperture returned no values for zoom position {zoomPosition} (result={countResult}, count={count}).");
+                return Array.Empty<int>();
+            }
+
+            var capacity = count;
+            var buffer = Marshal.AllocHGlobal(checked(capacity * sizeof(int)));
+            try
+            {
+                var dataResult = FujifilmSdkWrapper.XSDK_CapAperture(
+                    _session.Handle, zoomPosition, ref count, buffer);
+                if (dataResult != FujifilmSdkWrapper.XSDK_COMPLETE || count < 0 || count > capacity)
+                {
+                    _diagnostics.RecordEvent("Camera",
+                        $"CapAperture value query failed (result={dataResult}, count={count}, capacity={capacity}).");
+                    return Array.Empty<int>();
+                }
+
+                var reported = new int[count];
+                for (var i = 0; i < count; i++)
+                {
+                    reported[i] = Marshal.ReadInt32(buffer, i * sizeof(int));
+                }
+
+                var manual = FujifilmApertureCatalog.SelectManualValues(reported);
+                _diagnostics.RecordEvent("Camera",
+                    $"Lens advertises {manual.Count} manual aperture value(s) at zoom position {zoomPosition}: " +
+                    string.Join(", ", manual.Select(FujifilmApertureCatalog.Describe)));
+                return manual;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.RecordEvent("Camera", $"Aperture capability query failed: {ex.Message}");
+            return Array.Empty<int>();
+        }
+    }
+
+    public bool TrySetAperture(double fNumber, out string error)
+    {
+        error = string.Empty;
+        if (_session == null)
+        {
+            error = "Cannot set aperture: the camera is not connected.";
+            return false;
+        }
+
+        // The aperture range can change with zoom position, and an electronic lens can be swapped
+        // while the camera session remains open. Treat the lens as authoritative at command time.
+        var zoomPosition = _metadata.CurrentZoomPosition;
+        if (FujifilmSdkWrapper.XSDK_GetLensZoomPos(_session.Handle, out var currentZoomPosition) ==
+            FujifilmSdkWrapper.XSDK_COMPLETE)
+        {
+            zoomPosition = currentZoomPosition;
+            _metadata.CurrentZoomPosition = currentZoomPosition;
+        }
+
+        var currentApertureValues = QueryApertureValues(zoomPosition);
+        if (!_supportedApertureValues.SequenceEqual(currentApertureValues))
+        {
+            _supportedApertureValues = currentApertureValues;
+            RaisePropertyChanged(nameof(SupportsApertureControl));
+            RaisePropertyChanged(nameof(AvailableApertures));
+        }
+
+        if (_supportedApertureValues.Count == 0)
+        {
+            error = "The attached lens reports no manually selectable apertures. Check that its aperture ring is set to A.";
+            return false;
+        }
+
+        int requested;
+        try
+        {
+            requested = FujifilmApertureCatalog.ToSdkValue(fNumber);
+        }
+        catch (Exception)
+        {
+            error = $"Aperture f/{fNumber:0.0#} is invalid.";
+            return false;
+        }
+
+        if (!_supportedApertureValues.Contains(requested))
+        {
+            error = $"Aperture f/{fNumber:0.0#} is not advertised by the connected lens.";
+            return false;
+        }
+
+        var originalAEMode = FujifilmSdkWrapper.XSDK_AE_OFF;
+        var originalAperture = 0;
+        var haveOriginalAperture = false;
+        var changedAEMode = false;
+        var apertureWriteCompleted = false;
+        var apertureSet = false;
+        try
+        {
+            haveOriginalAperture = FujifilmSdkWrapper.XSDK_GetAperture(
+                _session.Handle, out originalAperture) == FujifilmSdkWrapper.XSDK_COMPLETE;
+
+            var getAEModeResult = FujifilmSdkWrapper.XSDK_GetAEMode(_session.Handle, out originalAEMode);
+            if (getAEModeResult != FujifilmSdkWrapper.XSDK_COMPLETE ||
+                originalAEMode != FujifilmSdkWrapper.XSDK_AE_OFF)
+            {
+                var setAEModeResult = FujifilmSdkWrapper.XSDK_SetAEMode(
+                    _session.Handle,
+                    FujifilmSdkWrapper.XSDK_AE_OFF);
+                if (setAEModeResult != FujifilmSdkWrapper.XSDK_COMPLETE)
+                {
+                    var sdkError = FujifilmSdkWrapper.GetLastError(_session.Handle);
+                    error = $"Cannot enable Manual exposure mode for aperture control " +
+                            $"(result={setAEModeResult}, error=0x{sdkError.ErrorCode:X}).";
+                    _diagnostics.RecordEvent("Camera", error);
+                    return false;
+                }
+
+                changedAEMode = getAEModeResult == FujifilmSdkWrapper.XSDK_COMPLETE;
+                _lastAEModeCode = FujifilmSdkWrapper.XSDK_AE_OFF;
+                _diagnostics.RecordEvent(
+                    "Camera",
+                    $"Changed AE mode from 0x{originalAEMode:X} to Manual for aperture control.");
+            }
+
+            var setResult = FujifilmSdkWrapper.XSDK_SetAperture(_session.Handle, requested);
+            if (setResult != FujifilmSdkWrapper.XSDK_COMPLETE)
+            {
+                var sdkError = FujifilmSdkWrapper.GetLastError(_session.Handle);
+                error = $"The camera refused aperture {FujifilmApertureCatalog.Describe(requested)} " +
+                        $"(result={setResult}, error=0x{sdkError.ErrorCode:X}). Check the lens aperture ring and exposure mode.";
+                _diagnostics.RecordEvent("Camera", error);
+                return false;
+            }
+            apertureWriteCompleted = true;
+
+            var getResult = FujifilmSdkWrapper.XSDK_GetAperture(_session.Handle, out var actual);
+            if (getResult != FujifilmSdkWrapper.XSDK_COMPLETE || actual != requested)
+            {
+                error = getResult != FujifilmSdkWrapper.XSDK_COMPLETE
+                    ? $"Aperture was written, but the camera did not return a value for verification (result={getResult})."
+                    : $"Requested {FujifilmApertureCatalog.Describe(requested)}, but the camera reports {FujifilmApertureCatalog.Describe(actual)}.";
+                _diagnostics.RecordEvent("Camera", error);
+                return false;
+            }
+
+            _metadata.CurrentAperture = FujifilmApertureCatalog.ToFNumber(actual);
+            _diagnostics.RecordEvent("Camera", $"Aperture set and verified at {FujifilmApertureCatalog.Describe(actual)}.");
+            RaisePropertyChanged(nameof(CurrentAperture));
+            apertureSet = true;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"Error setting aperture: {ex.Message}";
+            _diagnostics.RecordEvent("Camera", error);
+            return false;
+        }
+        finally
+        {
+            if (apertureWriteCompleted && !apertureSet && haveOriginalAperture && _session != null)
+            {
+                var restoreApertureResult = FujifilmSdkWrapper.XSDK_SetAperture(
+                    _session.Handle, originalAperture);
+                var verifyApertureResult = FujifilmSdkWrapper.XSDK_GetAperture(
+                    _session.Handle, out var restoredAperture);
+                var apertureRestored = restoreApertureResult == FujifilmSdkWrapper.XSDK_COMPLETE &&
+                                       verifyApertureResult == FujifilmSdkWrapper.XSDK_COMPLETE &&
+                                       restoredAperture == originalAperture;
+                _diagnostics.RecordEvent(
+                    "Camera",
+                    apertureRestored
+                        ? $"Restored aperture to {FujifilmApertureCatalog.Describe(originalAperture)} after verification failure."
+                        : $"Failed to restore aperture {FujifilmApertureCatalog.Describe(originalAperture)} after verification failure " +
+                          $"(set={restoreApertureResult}, get={verifyApertureResult}, actual={restoredAperture}).");
+                if (!apertureRestored)
+                {
+                    error += " The previous aperture could not be restored; reconnect the camera and verify its settings.";
+                }
+            }
+
+            // A successful aperture command must remain in Manual mode; restoring Program or a
+            // priority mode would immediately hand aperture selection back to the camera. If the
+            // write failed, undo the mode change so a failed command has no unrelated side effect.
+            if (changedAEMode && !apertureSet && _session != null)
+            {
+                var restoreResult = FujifilmSdkWrapper.XSDK_SetAEMode(_session.Handle, originalAEMode);
+                var verifyModeResult = FujifilmSdkWrapper.XSDK_GetAEMode(
+                    _session.Handle, out var restoredAEMode);
+                if (restoreResult == FujifilmSdkWrapper.XSDK_COMPLETE &&
+                    verifyModeResult == FujifilmSdkWrapper.XSDK_COMPLETE &&
+                    restoredAEMode == originalAEMode)
+                {
+                    _lastAEModeCode = originalAEMode;
+                    _diagnostics.RecordEvent("Camera", $"Restored AE mode to 0x{originalAEMode:X} after aperture failure.");
+                }
+                else
+                {
+                    _diagnostics.RecordEvent("Camera",
+                        $"Failed to restore AE mode 0x{originalAEMode:X} (set={restoreResult}, get={verifyModeResult}, actual=0x{restoredAEMode:X}).");
+                    error += " The previous exposure mode could not be restored; reconnect the camera and verify its settings.";
+                }
+            }
         }
     }
 
@@ -1639,6 +2056,7 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
 
         if (_session != null && _session.Handle != IntPtr.Zero)
         {
+            RestoreAutoPowerOff();
             _diagnostics.RecordEvent("Camera", $"Closing camera session {_session.Handle}");
             await _interop.CloseCameraAsync(_session).ConfigureAwait(false);
             _session = null;
@@ -1647,9 +2065,13 @@ public sealed class FujiCamera : IAsyncDisposable, INotifyPropertyChanged
             _supportedSensitivities = Array.Empty<int>();
             _shutterCodeToDuration = new Dictionary<int, double>();
             _supportedShutterCodes = Array.Empty<int>();
+            _supportedApertureValues = Array.Empty<int>();
             _bufferShootCapacity = 0;
             _bufferTotalCapacity = 0;
             RaisePropertyChanged(nameof(IsConnected));
+            RaisePropertyChanged(nameof(SupportsApertureControl));
+            RaisePropertyChanged(nameof(AvailableApertures));
+            RaisePropertyChanged(nameof(CurrentAperture));
         }
     }
 
